@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>第 3 頁：公式挑戰 (iPad 完美視覺版)</title>
+    <style>
+        /* ================= 平台基礎設定 (iPad Retina 優化) ================= */
+        body {
+            font-family: -apple-system, "Microsoft JhengHei", "PingFang TC", sans-serif;
+            background-color: #f4f7f8;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            overflow: hidden; 
+            -webkit-user-select: none; 
+            -webkit-touch-callout: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overscroll-behavior-y: none; /* 防止 iPad 橡皮筋回彈效果 */
+        }
+
+        /* --- 頂部導航 --- */
+        header {
+            width: 100%; 
+            background-color: rgba(44, 62, 80, 0.98); 
+            color: white; 
+            padding: 15px 25px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-sizing: border-box;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15); 
+            z-index: 100; 
+            flex-shrink: 0;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        h1 { margin: 0; font-size: 24px; letter-spacing: 1px;}
+        .instructions { font-size: 16px; color: #bdc3c7; margin-left: 15px; }
+
+        /* --- 佈局容器 --- */
+        .app-container {
+            display: flex; flex-direction: row; flex: 1; position: relative; width: 100%; height: 100%;
+        }
+
+        /* --- 主區域 (保證底部留有 120px 的防撞空間給懸浮按鈕) --- */
+        .main-stage {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 20px 20px 120px 20px; 
+            box-sizing: border-box;
+            overflow-y: auto; 
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch; 
+            touch-action: pan-y;
+            transition: padding-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .main-stage.keyboard-open { padding-right: 340px; }
+
+        /* 高質感卡片設計 (調整 Padding 以適應 iPad 螢幕高度) */
+        .game-board {
+            background: white; 
+            padding: 30px; 
+            border-radius: 24px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.05); 
+            display: flex; flex-direction: column; align-items: center; position: relative;
+            width: 100%; max-width: 850px; z-index: 10;
+        }
+
+        .level-indicator {
+            position: absolute; top: 20px; left: 20px; font-size: 18px; font-weight: bold;
+            color: #e67e22; background-color: #fef5e7; padding: 8px 16px; border-radius: 20px;
+            box-shadow: inset 0 0 0 1px rgba(230, 126, 34, 0.2);
+        }
+
+        .top-tools { position: absolute; top: 20px; right: 20px; }
+
+        .btn-ruler-toggle {
+            padding: 8px 16px; background-color: #f39c12; color: white; border: none;
+            border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3); display: none; transition: all 0.2s;
+        }
+        .btn-ruler-toggle:active { transform: scale(0.95); box-shadow: 0 2px 5px rgba(243, 156, 18, 0.3); }
+
+        /* --- 圖形展示 --- */
+        .shape-wrapper {
+            position: relative; margin: 40px 0; display: flex; justify-content: center;
+            align-items: center; min-height: 220px;
+        }
+
+        .abstract-shape {
+            background-color: rgba(129, 236, 236, 0.8); border: 4px solid #00cec9; 
+            box-shadow: 8px 8px 20px rgba(0,206,201,0.15);
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative;
+            border-radius: 4px;
+        }
+
+        .abstract-shape.special {
+            background-color: rgba(255, 234, 167, 0.9); border: 4px solid #f39c12; 
+            box-shadow: 0 0 40px rgba(241, 196, 15, 0.3);
+        }
+
+        .shape-label { position: absolute; font-size: 24px; font-weight: bold; color: #d35400; text-shadow: 1px 1px 0 rgba(255,255,255,0.8);}
+        .label-top { top: -35px; left: 50%; transform: translateX(-50%); }
+        .label-left { left: -65px; top: 50%; transform: translateY(-50%); }
+
+        /* --- 複合輸入區 --- */
+        .input-section {
+            background-color: #f8f9fa; padding: 20px 25px; border-radius: 18px;
+            display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: bold;
+            color: #2c3e50; margin-bottom: 15px; border: 2px solid transparent; transition: border-color 0.3s;
+            flex-wrap: wrap; justify-content: center;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);
+        }
+
+        .input-section.correct { border-color: #2ecc71; background-color: #f0fdf4; }
+
+        input.math-input {
+            width: 75px; height: 45px; font-size: 24px; text-align: center; border: 2px solid #cbd5e1;
+            border-radius: 12px; font-family: inherit; color: #2c3e50;
+            background-color: white; cursor: pointer; caret-color: transparent;
+            transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        
+        input.math-input.active-input {
+            border-color: #f39c12; box-shadow: 0 0 0 4px rgba(243, 156, 18, 0.2); 
+            background-color: #fffdf5; transform: scale(1.05);
+        }
+
+        select.math-select {
+            height: 49px; font-size: 20px; font-weight: bold; padding: 0 15px; border: 2px solid #cbd5e1;
+            border-radius: 12px; font-family: inherit; color: #2c3e50; cursor: pointer;
+            background-color: white; outline: none; -webkit-appearance: none; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        select.math-select.wrong-choice { border-color: #e74c3c; background-color: #fef0f0; }
+        
+        .static-unit { font-size: 18px; color: #95a5a6; margin-left: -5px; }
+        .feedback-msg { height: 30px; font-size: 20px; font-weight: bold; color: #27ae60; margin-bottom: 10px; text-align: center; }
+        
+        /* =========================================
+           ✨ 智慧懸浮按鈕區 (置中固定，自動閃避鍵盤) ✨
+           ========================================= */
+        .floating-action-box {
+            position: fixed; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            z-index: 2500;
+            display: flex; gap: 15px;
+            /* 平滑位移動畫 */
+            transition: left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 💡 核心魔法：當鍵盤展開時，中心點向左平移 170px (鍵盤 340px 的一半) */
+        body.kb-show .floating-action-box {
+            left: calc(50% - 170px);
+        }
+
+        .action-btn {
+            padding: 16px 55px; background-color: #3498db; color: white; border: none;
+            border-radius: 50px; font-size: 24px; font-weight: bold; cursor: pointer; 
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4); transition: all 0.2s;
+        }
+        .action-btn:active { transform: scale(0.95); box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2); }
+        .action-btn.btn-next { background-color: #27ae60; box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4); }
+        .action-btn.btn-next:active { box-shadow: 0 4px 10px rgba(39, 174, 96, 0.2); }
+
+        /* =========================================
+           難度提升提示面板 (高質感毛玻璃)
+           ========================================= */
+        .overlay-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(30, 41, 59, 0.7); z-index: 4000;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        }
+
+        .overlay-box {
+            background: rgba(255, 255, 255, 0.95); padding: 40px 50px; border-radius: 28px; 
+            width: 85%; max-width: 650px; text-align: center; 
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        @keyframes slideDown { 0% { transform: translateY(-50px) scale(0.95); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+
+        .overlay-title { color: #d35400; font-size: 30px; margin-top: 0; border-bottom: 2px dashed #f39c12; padding-bottom: 15px; width: 100%; }
+        .overlay-content { font-size: 22px; color: #34495e; margin: 25px 0; line-height: 1.6; text-align: left; width: 100%; }
+        
+        .demo-ruler-btn {
+            background-color: #f39c12; color: white; border: none; border-radius: 8px;
+            padding: 5px 12px; font-size: 20px; font-weight: bold; margin: 0 5px; pointer-events: none;
+        }
+        .demo-rotate-btn {
+            background-color: #2980b9; color: white; border: none; border-radius: 6px;
+            padding: 2px 10px; font-size: 20px; font-weight: bold; margin: 0 5px; pointer-events: none;
+        }
+
+        /* =========================================
+           虛擬間尺 (壓克力半透明玻璃質感)
+           ========================================= */
+        .virtual-ruler {
+            position: absolute; width: 550px; height: 80px; 
+            background: linear-gradient(to bottom, rgba(160, 216, 239, 0.75) 0%, rgba(125, 188, 232, 0.6) 100%); 
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.6); border-radius: 8px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.8);
+            cursor: grab; z-index: 2000; display: none; transform-origin: center center;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            touch-action: none; 
+        }
+        .virtual-ruler:active { cursor: grabbing; box-shadow: 0 25px 45px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.8); transform: scale(1.02); }
+        .virtual-ruler.rotated { transform: rotate(90deg); }
+        .virtual-ruler.rotated:active { transform: rotate(90deg) scale(1.02); }
+
+        .ruler-edge { position: absolute; top: 0; left: 20px; right: 20px; height: 35px; }
+        .tick { position: absolute; top: 0; background-color: #1a252f; width: 2px; border-radius: 0 0 2px 2px;}
+        .tick-cm { height: 22px; width: 3px; }
+        .tick-half { height: 15px; }
+        .tick-mm { height: 9px; width: 1.5px; opacity: 0.8;}
+
+        .ruler-num { position: absolute; top: 24px; transform: translateX(-50%); font-size: 16px; font-weight: 800; color: #1a252f; text-shadow: 0 1px 0 rgba(255,255,255,0.5);}
+        .ruler-bottom { position: absolute; bottom: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn-rotate { 
+            background-color: rgba(41, 128, 185, 0.9); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 10px; 
+            width: 45px; height: 45px; font-size: 26px; cursor: pointer; display: flex; 
+            justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: transform 0.1s;
+        }
+        .btn-rotate:active { transform: scale(0.9); }
+        .ruler-unit-text { font-size: 15px; font-weight: 800; color: #154360; letter-spacing: 1px;}
+
+        /* =========================================
+           右側抽屜式虛擬鍵盤 (iPad 毛玻璃風格)
+           ========================================= */
+        .virtual-keyboard {
+            position: fixed; top: 66px; right: -360px; width: 360px; height: calc(100vh - 66px);
+            background-color: rgba(248, 249, 250, 0.85); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.8); 
+            box-shadow: -10px 0 30px rgba(0,0,0,0.08);
+            padding: 25px 20px; box-sizing: border-box; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 3000;
+            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .virtual-keyboard.show { right: 0; }
+        .vk-header {
+            width: 100%; display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(189, 195, 199, 0.5); position: absolute; top: 20px;
+        }
+        .vk-title { font-size: 18px; font-weight: bold; color: #7f8c8d; margin: 0; }
+        .vk-close-btn { 
+            background: #e74c3c; color: white; border: none; font-size: 16px; font-weight: bold; 
+            cursor: pointer; padding: 10px 18px; border-radius: 12px; box-shadow: 0 4px 10px rgba(231,76,60,0.3); transition: transform 0.1s;
+        }
+        .vk-close-btn:active { transform: scale(0.95); }
+        
+        .vk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; }
+        .vk-btn {
+            background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(255,255,255,0.4); border-radius: 16px;
+            padding: 22px 0; font-size: 30px; font-weight: 600; color: #2c3e50;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04); cursor: pointer; text-align: center; transition: transform 0.1s, background 0.1s; touch-action: manipulation;
+        }
+        .vk-btn:active { transform: scale(0.94); background: rgba(223, 230, 233, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .vk-btn.vk-del { background-color: #fee2e2; color: #e11d48; }
+        .vk-btn.vk-clear { background-color: #fef3c7; color: #d97706; }
+        .vk-btn.vk-enter { background-color: #27ae60; color: white; grid-column: span 3; font-size: 24px; padding: 20px 0; margin-top: 10px; box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);}
+
+        /* --- 彩蛋面板 --- */
+        #easter-egg-panel {
+            display: none; flex-direction: column; align-items: center; background-color: #fff9e6;
+            border: 3px dashed #f39c12; padding: 30px 40px; border-radius: 24px; margin-top: 20px; margin-bottom: 40px;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 90%; box-sizing: border-box;
+        }
+        .egg-title { color: #d35400; font-size: 28px; margin: 0 0 15px 0; }
+        .egg-text { color: #2c3e50; font-size: 20px; line-height: 1.6; margin: 5px 0; text-align: center;}
+        .egg-formula-guide { 
+            background: #fff; border: 2px solid #f39c12; color: #d35400; 
+            padding: 25px; border-radius: 16px; font-size: 24px; font-weight: bold; 
+            margin-top: 20px; text-align: center; box-shadow: 0 10px 20px rgba(243, 156, 18, 0.1); width: 100%; box-sizing: border-box;
+        }
+        .blank-space { display: inline-block; width: 70px; border-bottom: 4px solid #d35400; margin: 0 15px; color: transparent; text-align: center; }
+        
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>第 3 頁：公式挑戰</h1>
+        <span class="instructions" id="header-inst">點擊白框呼叫右側鍵盤，輸入計算結果。</span>
+    </div>
+</header>
+
+<div class="app-container">
+    <div class="main-stage" id="main-stage">
+        <div class="game-board" id="game-board">
+            <div class="level-indicator" id="level-text">⭐ 挑戰 1 / 5</div>
+            
+            <div class="top-tools">
+                <button id="btn-toggle-ruler" class="btn-ruler-toggle" onclick="toggleRuler()">📏 打開間尺</button>
+            </div>
+
+            <div class="shape-wrapper">
+                <div class="shape-label label-top" id="label-w">? cm</div>
+                <div class="shape-label label-left" id="label-h">? cm</div>
+                <div class="abstract-shape" id="shape-display"></div>
+            </div>
+
+            <div class="input-section" id="input-box">
+                <input type="text" readonly class="math-input" id="in-len">
+                <span class="static-unit">cm</span>
+                
+                <select class="math-select" id="op-select">
+                    <option value="?">符號?</option>
+                    <option value="+">＋</option><option value="-">－</option>
+                    <option value="×">×</option><option value="÷">÷</option>
+                </select>
+                
+                <input type="text" readonly class="math-input" id="in-wid">
+                <span class="static-unit">cm</span>
+                <span>=</span>
+                <input type="text" readonly class="math-input" id="in-area">
+                
+                <select class="math-select" id="unit-select">
+                    <option value="?">單位?</option>
+                    <option value="cm">cm (厘米)</option><option value="cm²">cm² (平方厘米)</option><option value="m">m (米)</option>
+                </select>
+            </div>
+
+            <div class="feedback-msg" id="feedback"></div>
+
+            <!-- 彩蛋面板 -->
+            <div id="easter-egg-panel">
+                <h2 class="egg-title">✨ 隱藏彩蛋觸發 ✨</h2>
+                <p class="egg-text">咦？你有沒有發現這個圖形有點特別？<br>你測量出來的兩條邊都是 <strong id="egg-val" style="color:#e67e22; font-size:28px;">X</strong> cm！</p>
+                <p class="egg-text" style="background: white; padding: 15px; border-radius: 12px; width:100%;">
+                    當一個長方形的長和寬相等時，它其實就是<strong style="color:#27ae60;">正方形</strong>！<br>
+                    既然正方形的四條邊都一樣長，我們就給它們一個統一的名字，叫做<strong>「邊長」</strong>。
+                </p>
+                <div class="egg-formula-guide">
+                    💡 動動腦：請聽從老師的指示，<br>一起把正方形的面積公式寫在黑板上吧！<br><br>
+                    <div style="font-size: 26px; margin: 15px 0;">
+                        正方形面積 = <span class="blank-space">?</span> × <span class="blank-space">?</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✨ 置中固定懸浮按鈕區 (會隨鍵盤彈出而左移) ✨ -->
+    <div class="floating-action-box" id="floating-btn-box">
+        <button class="action-btn" id="btn-check" onclick="checkAnswer()">提交答案</button>
+        <button class="action-btn btn-next" id="btn-next" style="display: none;" onclick="nextLevel()">下一題 >></button>
+    </div>
+
+    <!-- 平板專屬：右側毛玻璃數字鍵盤 -->
+    <div class="virtual-keyboard" id="v-keyboard">
+        <div class="vk-header">
+            <span class="vk-title">數字鍵盤</span>
+            <button class="vk-close-btn" onclick="hideKeyboard()">✖ 關閉</button>
+        </div>
+        <div class="vk-grid">
+            <button class="vk-btn" onpointerdown="vkType('1', event)">1</button>
+            <button class="vk-btn" onpointerdown="vkType('2', event)">2</button>
+            <button class="vk-btn" onpointerdown="vkType('3', event)">3</button>
+            <button class="vk-btn" onpointerdown="vkType('4', event)">4</button>
+            <button class="vk-btn" onpointerdown="vkType('5', event)">5</button>
+            <button class="vk-btn" onpointerdown="vkType('6', event)">6</button>
+            <button class="vk-btn" onpointerdown="vkType('7', event)">7</button>
+            <button class="vk-btn" onpointerdown="vkType('8', event)">8</button>
+            <button class="vk-btn" onpointerdown="vkType('9', event)">9</button>
+            <button class="vk-btn action vk-clear" onpointerdown="vkClear(event)">C</button>
+            <button class="vk-btn" onpointerdown="vkType('0', event)">0</button>
+            <button class="vk-btn action vk-del" onpointerdown="vkDel(event)">⌫</button>
+            <button class="vk-btn enter" onpointerdown="hideKeyboard(event)">完成 (✓)</button>
+        </div>
+    </div>
+</div>
+
+<!-- 虛擬間尺組件 -->
+<div class="virtual-ruler" id="virtual-ruler">
+    <div class="ruler-edge" id="ruler-scale"></div>
+    <div class="ruler-bottom">
+        <button class="btn-rotate" id="btn-rotate" title="旋轉間尺">↻</button>
+        <span class="ruler-unit-text">CM</span>
+    </div>
+</div>
+
+<!-- 難度提升提示面板 -->
+<div id="difficulty-overlay" class="overlay-container">
+    <div class="overlay-box">
+        <h2 class="overlay-title">🚀 準備提高難度了！</h2>
+        <div class="overlay-content">
+            <p>接下來的挑戰，圖形旁邊的數字消失了！</p>
+            <p>你需要點擊右上角的 <button class="demo-ruler-btn">📏 打開間尺</button> 自己量度。</p>
+            <ul style="margin-top: 20px; padding-left: 20px;">
+                <li style="margin-bottom: 15px;">👆 <strong>移動：</strong> 按住間尺可以自由拖曳。</li>
+                <li>🔄 <strong>旋轉：</strong> 點擊間尺左下角的 <button class="demo-rotate-btn">↻</button> 按鈕，可以將尺子豎起來量度高度喔！</li>
+            </ul>
+        </div>
+        <button class="action-btn" style="background-color:#27ae60; font-size:24px; padding:15px 50px; margin-top: 10px;" onclick="startLevel3()">我準備好了！</button>
+    </div>
+</div>
+
+<script>
+    // --- 調整：總關卡數維持 5 關 ---
+    const TOTAL_LEVELS = 5;
+    let currentLevel = 1;
+    let currentW = 0; let currentH = 0;
+    const PIXEL_MULTIPLIER = 40; 
+
+    // DOM 元素快取
+    const mainStage = document.getElementById('main-stage');
+    const levelText = document.getElementById('level-text');
+    const shapeDisplay = document.getElementById('shape-display');
+    const labelW = document.getElementById('label-w');
+    const labelH = document.getElementById('label-h');
+    const btnToggleRuler = document.getElementById('btn-toggle-ruler');
+    const headerInst = document.getElementById('header-inst');
+    
+    const inLen = document.getElementById('in-len');
+    const opSelect = document.getElementById('op-select');
+    const inWid = document.getElementById('in-wid');
+    const inArea = document.getElementById('in-area');
+    const unitSelect = document.getElementById('unit-select');
+    const inputBox = document.getElementById('input-box');
+    
+    const feedback = document.getElementById('feedback');
+    const btnCheck = document.getElementById('btn-check');
+    const btnNext = document.getElementById('btn-next');
+    
+    const eggPanel = document.getElementById('easter-egg-panel');
+    const eggDesc1 = document.getElementById('egg-val');
+    
+    const difficultyOverlay = document.getElementById('difficulty-overlay');
+
+    const ruler = document.getElementById('virtual-ruler');
+    const rulerScale = document.getElementById('ruler-scale');
+    const btnRotate = document.getElementById('btn-rotate');
+    let isRulerOpen = false;
+
+    // --- 虛擬鍵盤邏輯 ---
+    const vKeyboard = document.getElementById('v-keyboard');
+    const mathInputs = [inLen, inWid, inArea];
+    let activeInput = null;
+
+    mathInputs.forEach(input => {
+        input.addEventListener('pointerdown', function(e) {
+            if (this.disabled) return;
+            e.preventDefault(); e.stopPropagation(); 
+            mathInputs.forEach(i => i.classList.remove('active-input'));
+            this.classList.add('active-input');
+            activeInput = this;
+            vKeyboard.classList.add('show');
+            document.body.classList.add('kb-show'); // 觸發主畫面擠壓與按鈕左移
+        });
+    });
+
+    document.addEventListener('pointerdown', function(e) {
+        if (!vKeyboard.contains(e.target) && !e.target.classList.contains('math-input') && !e.target.classList.contains('action-btn')) {
+            hideKeyboard();
+        }
+    });
+
+    function hideKeyboard(e) {
+        if(e) e.preventDefault();
+        vKeyboard.classList.remove('show');
+        document.body.classList.remove('kb-show'); 
+        mathInputs.forEach(i => i.classList.remove('active-input'));
+        activeInput = null;
+    }
+
+    function vkType(num, e) {
+        if(e) e.preventDefault();
+        if (!activeInput) return;
+        if (activeInput.value.length < 3) { activeInput.value += num; }
+    }
+    function vkDel(e) {
+        if(e) e.preventDefault();
+        if (!activeInput) return; activeInput.value = activeInput.value.slice(0, -1);
+    }
+    function vkClear(e) {
+        if(e) e.preventDefault();
+        if (!activeInput) return; activeInput.value = '';
+    }
+
+    // --- 初始化 ---
+    buildRuler();
+    generateProblem();
+
+    function generateProblem() {
+        hideKeyboard(); 
+        
+        // 重置輸入與UI狀態
+        inLen.value = ''; inWid.value = ''; inArea.value = '';
+        opSelect.value = '?'; unitSelect.value = '?';
+        inLen.disabled = false; inWid.disabled = false; inArea.disabled = false;
+        opSelect.disabled = false; unitSelect.disabled = false;
+        
+        inputBox.classList.remove('correct');
+        opSelect.classList.remove('wrong-choice'); unitSelect.classList.remove('wrong-choice');
+        feedback.textContent = '';
+        
+        btnCheck.style.display = 'block'; 
+        btnNext.style.display = 'none';
+        
+        eggPanel.style.display = 'none'; 
+        shapeDisplay.classList.remove('special');
+        levelText.textContent = `⭐ 挑戰 ${currentLevel} / ${TOTAL_LEVELS}`;
+
+        // 題目生成邏輯 (前4關保證寬>高，第5關保證正方形)
+        if (currentLevel < TOTAL_LEVELS) {
+            do {
+                let w = Math.floor(Math.random() * 7) + 4; // 4-10
+                let h = Math.floor(Math.random() * 5) + 3; // 3-7
+                // 保證寬大於高，符合橫向長方形
+                currentW = Math.max(w, h);
+                currentH = Math.min(w, h);
+            } while (currentW === currentH); 
+        } else {
+            // 第 5 關：生成正方形彩蛋
+            let side = Math.floor(Math.random() * 4) + 5; // 5-8
+            currentW = side; currentH = side;
+            shapeDisplay.classList.add('special');
+        }
+
+        shapeDisplay.style.width = (currentW * PIXEL_MULTIPLIER) + 'px';
+        shapeDisplay.style.height = (currentH * PIXEL_MULTIPLIER) + 'px';
+
+        if (currentLevel <= 2) {
+            labelW.textContent = currentW + ' cm'; labelH.textContent = currentH + ' cm';
+            labelW.style.display = 'block'; labelH.style.display = 'block';
+            btnToggleRuler.style.display = 'none';
+            headerInst.textContent = "前兩題為熱身，請點擊白框呼叫右側鍵盤輸入結果。";
+            closeRuler();
+        } else {
+            labelW.style.display = 'none'; labelH.style.display = 'none';
+            btnToggleRuler.style.display = 'block';
+            headerInst.textContent = "數字消失了！請打開間尺自己量度喔。";
+        }
+        mainStage.scrollTop = 0; 
+    }
+
+    function nextLevel() {
+        if (currentLevel < TOTAL_LEVELS) {
+            currentLevel++;
+            generateProblem();
+            if (currentLevel === 3) {
+                difficultyOverlay.style.display = 'flex';
+            }
+        } else {
+            alert("恭喜你！你已經完成了「面積」單元的基礎測量、長方形與正方形的計算！");
+            currentLevel = 1; generateProblem();
+        }
+    }
+
+    function startLevel3() {
+        difficultyOverlay.style.display = 'none';
+        btnToggleRuler.animate([
+            { transform: 'scale(1)', backgroundColor: '#f39c12' },
+            { transform: 'scale(1.15)', backgroundColor: '#e74c3c' },
+            { transform: 'scale(1)', backgroundColor: '#f39c12' }
+        ], { duration: 600, iterations: 3 });
+    }
+
+    function checkAnswer() {
+        hideKeyboard(); 
+
+        const valL = parseInt(inLen.value); const op = opSelect.value;
+        const valW = parseInt(inWid.value); const valA = parseInt(inArea.value);
+        const unit = unitSelect.value;
+
+        opSelect.classList.remove('wrong-choice'); unitSelect.classList.remove('wrong-choice');
+
+        // 基本防呆檢查
+        if(isNaN(valL) || isNaN(valW) || isNaN(valA) || op === '?' || unit === '?') {
+            feedback.style.color = '#e74c3c'; feedback.textContent = "請填寫所有的數字，並選擇符號和單位喔！"; 
+            return;
+        }
+
+        // 驗證邏輯
+        const isDimMatch = (valL === currentW && valW === currentH) || (valL === currentH && valW === currentW);
+        const isOpMatch = (op === '×');
+        const isAreaMatch = (valA === currentW * currentH);
+        const isUnitMatch = (unit === 'cm²');
+
+        if (!isDimMatch) {
+            feedback.style.color = '#e74c3c';
+            feedback.textContent = currentLevel <= 2 ? "邊長的數字好像填錯囉，請再看一次圖形！" : "量度出來的數字好像不對喔，請用間尺再仔細量一次！"; return;
+        }
+        if (!isOpMatch) {
+            feedback.style.color = '#e74c3c'; opSelect.classList.add('wrong-choice');
+            feedback.textContent = op === '+' ? "計算面積是要用『加法』嗎？想想面積的意義！" : "運算符號選錯囉！"; return;
+        }
+        if (!isAreaMatch) { feedback.style.color = '#e74c3c'; feedback.textContent = "乘法計算好像有誤，請再算一次結果！"; return; }
+        if (!isUnitMatch) {
+            feedback.style.color = '#e74c3c'; unitSelect.classList.add('wrong-choice');
+            feedback.textContent = unit === 'cm' ? "面積的單位不是長度(cm)喔！記得要有「平方」！" : "面積單位應該是什麼呢？"; return;
+        }
+
+        // 全對通過
+        feedback.style.color = '#27ae60'; inputBox.classList.add('correct');[inLen, inWid, inArea, opSelect, unitSelect].forEach(el => el.disabled = true);
+        btnCheck.style.display = 'none';
+
+        if (currentLevel < TOTAL_LEVELS) {
+            feedback.textContent = "太棒了！運算與單位都完全正確！🎉";
+            btnNext.style.display = 'block'; btnNext.textContent = "下一題 >>";
+            closeRuler();
+        } else {
+            // 觸發彩蛋
+            feedback.textContent = "太棒了！運算完全正確！👇 請往下看 👇";
+            eggDesc1.textContent = currentW;
+            eggPanel.style.display = 'flex';
+            closeRuler();
+            
+            btnNext.textContent = "🏆 完成教學 🏆"; 
+            btnNext.style.display = 'block'; 
+
+            // 自動捲動到底部看彩蛋
+            setTimeout(() => { mainStage.scrollTo({ top: mainStage.scrollHeight, behavior: 'smooth' }); }, 300);
+        }
+    }
+
+    // ==========================================
+    // 虛擬間尺系統 (支援觸控拖曳與旋轉)
+    // ==========================================
+    function buildRuler() {
+        for(let i=0; i<=13; i++) {
+            let x = i * PIXEL_MULTIPLIER;
+            rulerScale.innerHTML += `<div class="tick tick-cm" style="left:${x}px"></div>`;
+            rulerScale.innerHTML += `<div class="ruler-num" style="left:${x}px">${i}</div>`;
+            if(i < 13) {
+                for(let j=1; j<10; j++) {
+                    let mmX = x + (j * PIXEL_MULTIPLIER / 10);
+                    let cls = (j === 5) ? 'tick-half' : 'tick-mm';
+                    rulerScale.innerHTML += `<div class="tick ${cls}" style="left:${mmX}px"></div>`;
+                }
+            }
+        }
+    }
+
+    function toggleRuler() {
+        isRulerOpen = !isRulerOpen;
+        if (isRulerOpen) {
+            hideKeyboard(); 
+            ruler.style.display = 'block';
+            btnToggleRuler.textContent = "收起間尺"; 
+            btnToggleRuler.style.backgroundColor = '#7f8c8d';
+            ruler.classList.remove('rotated');
+            ruler.style.left = (window.innerWidth / 2 - 275) + 'px'; 
+            ruler.style.top = '150px';
+        } else { closeRuler(); }
+    }
+
+    function closeRuler() {
+        isRulerOpen = false; ruler.style.display = 'none';
+        btnToggleRuler.textContent = "📏 打開間尺"; 
+        btnToggleRuler.style.backgroundColor = '#f39c12';
+    }
+
+    btnRotate.addEventListener('pointerdown', rotateRuler);
+    
+    function rotateRuler(e) { 
+        e.preventDefault(); e.stopPropagation(); 
+        ruler.classList.toggle('rotated'); 
+    }
+
+    let isDraggingRuler = false; 
+    let dragStartX, dragStartY, initialRulerX, initialRulerY;
+
+    ruler.addEventListener('pointerdown', startDrag);
+
+    function startDrag(e) {
+        if (e.target.id === 'btn-rotate') return; 
+        e.preventDefault(); 
+        
+        isDraggingRuler = true; 
+        dragStartX = e.clientX || (e.touches && e.touches[0].clientX);
+        dragStartY = e.clientY || (e.touches && e.touches[0].clientY);
+        initialRulerX = ruler.offsetLeft; 
+        initialRulerY = ruler.offsetTop;
+        ruler.style.transition = 'none'; 
+        
+        document.addEventListener('pointermove', doDrag);
+        document.addEventListener('pointerup', endDrag);
+    }
+
+    function doDrag(e) {
+        if (!isDraggingRuler) return;
+        e.preventDefault();
+
+        let currentX = e.clientX || (e.touches && e.touches[0].clientX);
+        let currentY = e.clientY || (e.touches && e.touches[0].clientY);
+
+        ruler.style.left = (initialRulerX + (currentX - dragStartX)) + 'px';
+        ruler.style.top = (initialRulerY + (currentY - dragStartY)) + 'px';
+    }
+
+    function endDrag() {
+        if (isDraggingRuler) {
+            isDraggingRuler = false;
+            ruler.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            document.removeEventListener('pointermove', doDrag);
+            document.removeEventListener('pointerup', endDrag);
+        }
+    }
+
+</script>
+
+</body>
+</html>
