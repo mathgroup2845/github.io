@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>面積探險家 (iPad防跳動優化版)</title>
+    <style>
+        /* ✅ 1. 鎖定基礎視口，禁止 Safari 鍵盤彈出時強制縮放版面 */
+        html, body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background: #f0f8ff; 
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden; /* 關鍵：鎖定整體高度，鍵盤改為覆蓋模式 */
+            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
+        }
+        header { 
+            background: #2c3e50; color: white; padding: 12px 20px; font-size: 20px; font-weight: bold;
+            display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 200; 
+            flex-shrink: 0; height: 50px;
+        }
+        .app-body { 
+            display: flex; 
+            flex: 1; 
+            height: calc(100vh - 50px); 
+            position: relative; 
+            overflow: hidden; 
+            min-height: 0; /* Flexbox 防溢出修正 */
+        }
+        .history-panel {
+            width: 240px; background: #dfe6e9; border-right: 2px solid #bdc3c7; box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; align-items: center; padding: 15px 8px; overflow-y: auto; z-index: 100; flex-shrink: 0;
+        }
+        .history-title { font-size: 18px; font-weight: bold; color: #2c3e50; border-bottom: 3px solid #f1c40f; padding-bottom: 6px; margin-bottom: 15px; width: 90%; text-align: center; }
+        .history-card {
+            background: white; border-radius: 12px; padding: 12px; width: 92%; box-sizing: border-box;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px; display: flex; flex-direction: column; align-items: center;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 2px solid #3498db;
+        }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .mini-grid { display: grid; border: 2px solid #2980b9; background: rgba(135, 206, 235, 0.2); margin-bottom: 8px; }
+        .mini-cell { background: #81ecec; box-sizing: border-box; border: 1px solid #00cec9;}
+        .history-data { font-size: 14px; font-weight: bold; color: #34495e; text-align: center; line-height: 1.4; }
+        .history-data span { color: #d35400; }
+        #empty-msg { color: #7f8c8d; font-size: 14px; text-align: center; margin-top: 15px; padding: 10px; border: 2px dashed #bdc3c7; border-radius: 10px; }
+        
+        .main-layout {
+            flex: 1; 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 15px; 
+            overflow-y: auto; 
+            box-sizing: border-box;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: auto;
+            min-height: 0;
+            transition: padding-right 0.3s ease;
+        }
+        body.kb-show .main-layout { padding-right: 300px; }
+        
+        .stage { 
+            background: white; padding: 25px 20px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); 
+            text-align: center; width: 100%; max-width: 850px; position: relative; margin-bottom: 20px;
+            flex-shrink: 0; transform: translateZ(0);
+            transition: opacity 0.3s, filter 0.3s;
+        }
+        .stage.dimmed { opacity: 0.6; filter: blur(1px) brightness(0.95); pointer-events: none; }
+        .task-title { font-size: 24px; color: #d35400; margin: 0 0 8px 0; border-bottom: 2px dashed #f1c40f; padding-bottom: 8px; }
+        .task-desc { font-size: 17px; color: #555; margin-bottom: 15px; line-height: 1.5; }
+        
+        /* ✅ 2. 修改為強制不換行(nowrap)，並微調邊距，保證鍵盤彈出時圖形絕不下掉 */
+        .shape-container { 
+            display: flex; justify-content: center; align-items: flex-start; gap: 20px; 
+            flex-wrap: nowrap; /* 關鍵修改：禁止換行 */
+            padding: 5px; flex-shrink: 0;
+            position: sticky; top: 0; z-index: 50;
+            background: white; padding-top: 10px; padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .shape-box { 
+            position: relative; display: inline-block; 
+            margin: 55px 20px 15px 65px; /* 左邊距保留65px給標尺，其他縮小 */
+            transform: translateZ(0); contain: layout style;
+            flex-shrink: 0;
+        }
+        .ruler-w { position: absolute; top: -42px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: bold; color: #d35400; white-space: nowrap; }
+        .ruler-h { position: absolute; left: -62px; top: 50%; transform: translateY(-50%); font-size: 20px; font-weight: bold; color: #d35400; white-space: nowrap; }
+        .grid-shape { display: grid; border: 3px solid #2980b9; background: rgba(135, 206, 235, 0.1); touch-action: none; }
+        .grid-shape.locked { pointer-events: none; } 
+        .cell { border: 1px solid transparent; background: transparent; box-sizing: border-box; cursor: pointer; transition: transform 0.1s; }
+        .cell.show { background: #81ecec; border: 1px solid #00cec9; box-shadow: inset 0 0 4px rgba(0,0,0,0.1); animation: popCell 0.2s ease-out; }
+        @keyframes popCell { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .toolbox { 
+            background: #fdfefe; border: 2px solid #bdc3c7; border-radius: 15px; padding: 12px; 
+            display: flex; flex-direction: column; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            width: 160px; flex-shrink: 0; margin-top: 40px;
+        }
+        .tool-title { font-size: 16px; font-weight: bold; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px; width: 100%; text-align: center; margin-bottom: 12px; }
+        .tool-item { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 12px; }
+        .source-tile { 
+            width: 40px; height: 40px; background: #81ecec; border: 2px solid #00cec9; 
+            cursor: grab; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); touch-action: none;
+        }
+        .source-tile:active { cursor: grabbing; }
+        .tool-item span { font-size: 13px; color: #666; line-height: 1.3; text-align: center; }
+        .tool-btn { 
+            width: 100%; padding: 10px; font-size: 15px; font-weight: bold; color: white; background: #3498db; 
+            border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 0 #2980b9; transition: all 0.1s;
+        }
+        .tool-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #2980b9; }
+        .quick-tools-panel {
+            width: 100%; display: none; flex-direction: column; gap: 8px; margin-top: 10px;
+            padding-top: 12px; border-top: 2px dashed #bdc3c7; animation: expandDown 0.3s ease-out;
+        }
+        @keyframes expandDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .dragging-tile {
+            position: fixed; width: 40px; height: 40px; background: #81ecec; border: 2px solid #00cec9;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.3); pointer-events: none; z-index: 9999; transform: scale(1.1);
+        }
+
+        /* 雙行輸入區優化 */
+        .input-group { 
+            margin: 12px auto; width: 100%; max-width: 460px;
+            background: #fff9e6; border: 2px dashed #f39c12; padding: 14px 18px; border-radius: 16px;
+            display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+            position: sticky; top: 220px; z-index: 40; 
+        }
+        .input-row {
+            display: flex; align-items: center; justify-content: center; width: 100%; gap: 10px;
+            font-size: 18px; font-weight: bold; color: #2c3e50; flex-wrap: wrap;
+        }
+        .input-row.result-row { color: #d35400; font-size: 19px; margin-top: 2px; }
+        .vk-input { 
+            width: 60px; text-align: center; font-size: 18px; padding: 5px; font-weight: bold; color: #2c3e50;
+            border: 3px solid #bdc3c7; border-radius: 10px; outline: none; background: white; cursor: pointer;
+            min-height: 40px; transition: all 0.2s;
+        }
+        .vk-input.active { border-color: #f39c12; background: #fdfae2; box-shadow: 0 0 6px rgba(243, 156, 18, 0.4); }
+        .vk-input.correct { border-color: #2ecc71; background: #eaffea; color: #27ae60; pointer-events: none; }
+        
+        .step-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0; background: #f8f9fa; padding: 10px; border-radius: 12px; flex-wrap: wrap;}
+        .step-btn { 
+            padding: 10px 18px; font-size: 16px; border-radius: 8px; border: none; font-weight: bold;
+            background: #3498db; color: white; cursor: pointer; box-shadow: 0 3px 0 #2980b9; transition: all 0.1s; min-height: 44px;
+        }
+        .step-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 #2980b9; }
+        .step-btn:disabled { background: #bdc3c7; box-shadow: 0 3px 0 #95a5a6; cursor: not-allowed; opacity: 0.8; }
+
+        .virtual-keyboard {
+            position: fixed; right: -300px; top: 50px; bottom: 0; width: 300px; background: #dfe6e9; 
+            border-radius: 20px 0 0 20px; box-shadow: -5px 0 20px rgba(0,0,0,0.3); padding: 15px;
+            display: flex; flex-direction: column; justify-content: center; 
+            transition: right 0.3s ease; z-index: 9999; box-sizing: border-box;
+            will-change: right; backface-visibility: hidden; transform: translateZ(0);
+        }
+        .virtual-keyboard.show { right: 0; }
+        .vk-title { text-align: center; font-size: 16px; font-weight: bold; color: #7f8c8d; margin-bottom: 15px; }
+        .vk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .vk-btn { 
+            font-size: 24px; font-weight: bold; color: #2c3e50; padding: 14px 0; 
+            border-radius: 10px; border: none; background: white; box-shadow: 0 3px 5px rgba(0,0,0,0.1); cursor: pointer; touch-action: manipulation; min-height: 44px;
+        }
+        .vk-btn:active { background: #bdc3c7; transform: translateY(2px); }
+        .vk-btn.action { background: #e74c3c; color: white; font-size: 18px; }
+        .vk-btn.enter { grid-column: span 3; background: #27ae60; color: white; font-size: 20px; padding: 14px 0; margin-top: 5px;}
+
+        /* 底部非阻塞提示列 */
+        .worksheet-toast {
+            position: fixed; bottom: -150px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 650px;
+            background: white; border-radius: 16px;
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
+            padding: 16px 20px; z-index: 10000;
+            transition: bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-top: 4px solid #27ae60;
+        }
+        .worksheet-toast.show { bottom: 20px; }
+        .toast-content { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        .toast-icon { font-size: 28px; }
+        .toast-text { font-size: 16px; color: #2c3e50; line-height: 1.4; text-align: left; }
+        .toast-check label { 
+            font-size: 15px; color: #7f8c8d; cursor: pointer; display: flex; align-items: center; gap: 6px; 
+            background: #f8f9fa; padding: 6px 12px; border-radius: 8px;
+        }
+        .toast-check input { width: 18px; height: 18px; accent-color: #27ae60; }
+        .toast-btn {
+            padding: 10px 24px; font-size: 16px; background: #bdc3c7; color: white; border: none; border-radius: 50px; cursor: not-allowed; font-weight: bold; transition: 0.3s;
+        }
+        .toast-btn.active { background: #27ae60; cursor: pointer; box-shadow: 0 4px 0 #1e8449; }
+        .toast-btn.active:active { transform: translateY(4px); box-shadow: 0 0 0 #1e8449; }
+
+        .final-thought { display: none; flex-direction: column; align-items: center;}
+        .final-thought p { text-align: left; font-size: 20px; background: #f9ebff; padding: 20px; border-radius: 15px; border: 2px solid #9b59b6; margin: 0; line-height: 1.6;}
+        @media (min-width: 800px) {
+            .stage { max-width: 900px; padding: 30px; }
+            .task-title { font-size: 26px; }
+            .input-group { max-width: 480px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <span>小偵探任務 (<span id="task-counter">1/2</span>)</span>
+    <span style="font-size: 15px; font-weight: normal;">動手測量，發現規律</span>
+</header>
+
+<div class="app-body">
+    <div class="history-panel">
+        <div class="history-title">📝 偵探筆記</div>
+        <div id="empty-msg">目前還沒有記錄喔！<br>完成任務後會出現在這裡。</div>
+        <div id="history-list" style="width: 100%; display: flex; flex-direction: column; align-items: center;"></div>
+    </div>
+
+    <div class="main-layout" id="main-layout">
+        <div class="stage" id="stage-t1">
+            <h2 class="task-title">任務一：動手測量長方形</h2>
+            <div class="task-desc" id="t1-desc">
+                請用左邊的「小方塊」測量這個圖形，找出它的面積。<br>
+                <span style="color:#e67e22; font-size:15px;">💡 提示：先數「每排有幾個」，再數「有幾排」</span>
+            </div>
+            <div class="shape-container">
+                <div class="toolbox" id="t1-toolbox">
+                    <div class="tool-title">🧰 測量工具箱</div>
+                    <div class="tool-item">
+                        <div class="source-tile" id="source-tile"></div>
+                        <span>單顆小方塊<br>(拖曳/點擊)</span>
+                    </div>
+                    <button class="tool-btn" style="background:#f1c40f; color:#d35400; box-shadow: 0 4px 0 #e67e22; margin-top: 8px;" onclick="toggleQuickTools()">⚡ 快速測量</button>
+                    <div class="quick-tools-panel" id="quick-tools">
+                        <button class="tool-btn" onclick="t1LayRow()">📏 鋪一排</button>
+                        <button class="tool-btn" onclick="t1LayCol()">📐 鋪一列</button>
+                        <button class="tool-btn" style="background:#e74c3c; box-shadow: 0 4px 0 #c0392b;" onclick="t1Clear()">🧹 清空</button>
+                    </div>
+                </div>
+                <div class="shape-box">
+                    <div class="ruler-w">6 cm</div>
+                    <div class="ruler-h">4 cm</div>
+                    <div class="grid-shape" id="shape-t1" style="width: 240px; height: 160px; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(4, 1fr);"></div>
+                </div>
+            </div>
+            <div class="input-group" id="t1-measure-area">
+                <div class="input-row">
+                    <span>每排有</span><input type="text" readonly class="vk-input t1-input" id="t1-row" placeholder="?"><span>個方格</span>
+                    <span style="color:#bdc3c7; font-size:20px;">｜</span>
+                    <span>共</span><input type="text" readonly class="vk-input t1-input" id="t1-col" placeholder="?"><span>排</span>
+                </div>
+                <div class="input-row result-row">
+                    <span>總面積是</span><input type="text" readonly class="vk-input t1-input" id="t1-all" placeholder="?"><span>cm²</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stage" id="stage-t2" style="display:none;">
+            <h2 class="task-title">任務二：規律大挑戰</h2>
+            <div class="task-desc" id="t2-desc">
+                新的圖形來了！試試看不用一個一個鋪，用「規律」快速算出面積。<br>
+                <span style="color:#27ae60; font-size:15px;">✨ 先鋪一排與一列，觀察規律後直接填數！</span>
+            </div>
+            <div class="shape-container">
+                <div class="shape-box">
+                    <div class="ruler-w" id="t2-lbl-w"></div>
+                    <div class="ruler-h" id="t2-lbl-h"></div>
+                    <div class="grid-shape" id="shape-t2"></div>
+                </div>
+            </div>
+            <div id="t2-measure-area">
+                <div class="step-row" style="justify-content: center;">
+                    <button class="step-btn" id="btn-t2-row" onclick="t2LayRow()">1. 鋪第一排</button>
+                    <button class="step-btn" id="btn-t2-col" onclick="t2LayCol()" disabled>2. 鋪第一列</button>
+                    <button class="step-btn" id="btn-t2-all" style="background:#bdc3c7; box-shadow:0 3px 0 #95a5a6; cursor:default;" disabled>3. 驗證鋪滿</button>
+                </div>
+                <div class="input-group" id="t2-inputs" style="display:none; margin-top:12px;">
+                    <div class="input-row">
+                        <span>每排有</span><input type="text" readonly class="vk-input t2-input" id="t2-row" placeholder="?"><span>個方格</span>
+                        <span style="color:#bdc3c7; font-size:20px;">｜</span>
+                        <span>共</span><input type="text" readonly class="vk-input t2-input" id="t2-col" placeholder="?"><span>排</span>
+                    </div>
+                    <div class="input-row result-row">
+                        <span>總面積是</span><input type="text" readonly class="vk-input t2-input" id="t2-all" placeholder="?"><span>cm²</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stage final-thought" id="final-area">
+            <h2 style="color: #8e44ad; font-size:28px; margin:0;">🎉 小偵探任務完成！</h2>
+            <p style="margin-top:15px;">
+                請小組討論：<br>
+                「每排的個數」代表圖形的什麼？<br>
+                「排數」又代表圖形的什麼？<br><br>
+                <span style="color:#d35400; font-weight:bold;">📝 請把你們的發現寫在學習單上，準備分享！</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div id="vk" class="virtual-keyboard">
+    <div class="vk-title">⌨️ 數學鍵盤</div>
+    <div class="vk-grid">
+        <button class="vk-btn" onpointerdown="kbType('1', event)">1</button>
+        <button class="vk-btn" onpointerdown="kbType('2', event)">2</button>
+        <button class="vk-btn" onpointerdown="kbType('3', event)">3</button>
+        <button class="vk-btn" onpointerdown="kbType('4', event)">4</button>
+        <button class="vk-btn" onpointerdown="kbType('5', event)">5</button>
+        <button class="vk-btn" onpointerdown="kbType('6', event)">6</button>
+        <button class="vk-btn" onpointerdown="kbType('7', event)">7</button>
+        <button class="vk-btn" onpointerdown="kbType('8', event)">8</button>
+        <button class="vk-btn" onpointerdown="kbType('9', event)">9</button>
+        <button class="vk-btn action" onpointerdown="kbType('C', event)">清除</button>
+        <button class="vk-btn" onpointerdown="kbType('0', event)">0</button>
+        <button class="vk-btn action" onpointerdown="kbType('B', event)">⌫</button>
+        <button class="vk-btn enter" onpointerdown="closeKb(event)">確認 ✓</button>
+    </div>
+</div>
+
+<div class="worksheet-toast" id="worksheet-toast">
+    <div class="toast-content">
+        <div class="toast-icon">✅</div>
+        <div class="toast-text">
+            <strong>測量完成！</strong><br>
+            請將數據填寫至【紙本學習單】
+        </div>
+        <div class="toast-check">
+            <label><input type="checkbox" id="ws-check" onchange="enableNextBtn()"> 我已寫完</label>
+        </div>
+        <button class="toast-btn" id="toast-next-btn" onclick="nextTask()">下一關 →</button>
+    </div>
+</div>
+
+<script>
+    // ✅ 視口與鍵盤動態管理核心邏輯
+    const mainLayout = document.getElementById('main-layout');
+    
+    // 監聽 iOS/Chrome 虛擬鍵盤高度變化
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            const keyboardHeight = window.innerHeight - window.visualViewport.height;
+            if (keyboardHeight > 80) {
+                // 鍵盤彈出：動態補償底部空間，確保圖形不被擠下
+                mainLayout.style.paddingBottom = `${keyboardHeight + 20}px`;
+                mainLayout.scrollTop = 0; // 強制回到頂部，圖形保持可見
+            } else {
+                // 鍵盤收回：恢復預設內距
+                mainLayout.style.paddingBottom = '20px';
+            }
+        });
+    }
+
+    let activeInp = null;
+    function openKb(el) {
+        if(el.disabled || el.classList.contains('correct')) return;
+        activeInp = el;
+        document.getElementById('vk').classList.add('show');
+        document.body.classList.add('kb-show'); 
+        document.querySelectorAll('.vk-input').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+        
+        // 聚焦時輕微淡化背景，提升專注度
+        document.querySelectorAll('.stage').forEach(s => s.style.filter = 'brightness(0.96)');
+    }
+    function closeKb(e) {
+        if(e) e.preventDefault();
+        document.getElementById('vk').classList.remove('show'); 
+        document.body.classList.remove('kb-show'); 
+        if(activeInp) activeInp.classList.remove('active');
+        activeInp = null;
+        document.querySelectorAll('.stage').forEach(s => s.style.filter = 'brightness(1)');
+    }
+    function kbType(val, e) {
+        if(e) e.preventDefault(); if(!activeInp) return;
+        if(val==='C') activeInp.value='';
+        else if(val==='B') activeInp.value=activeInp.value.slice(0,-1);
+        else if(activeInp.value.length < 3) activeInp.value += val;
+        activeInp.dispatchEvent(new Event('input'));
+    }
+    document.body.addEventListener('pointerdown', e => {
+        if(!e.target.closest('.virtual-keyboard') && !e.target.closest('.vk-input') && !e.target.closest('.tool-btn') && !e.target.closest('.step-btn') && !e.target.closest('.toast-btn') && !e.target.closest('.toast-check')) closeKb();
+    });
+    document.querySelectorAll('.vk-input').forEach(inp => inp.onpointerdown = e => { e.preventDefault(); e.stopPropagation(); openKb(inp); });
+
+    let previousShapes =[];
+    function saveToHistory(w, h, t) {
+        document.getElementById('empty-msg').style.display = 'none';
+        const list = document.getElementById('history-list'), card = document.createElement('div');
+        card.className = 'history-card';
+        const mg = document.createElement('div'); mg.className='mini-grid';
+        mg.style.cssText = `width:${w*12}px; height:${h*12}px; grid-template-columns:repeat(${w},1fr)`;
+        for(let i=0;i<w*h;i++){ const c=document.createElement('div'); c.className='mini-cell'; mg.appendChild(c); }
+        const dt = document.createElement('div'); dt.className='history-data';
+        dt.innerHTML = `長:<span>${w}</span> 寬:<span>${h}</span><br>面積:<span>${t}</span> cm²`;
+        card.append(mg, dt); list.appendChild(card);
+        previousShapes.push({w,h});
+    }
+
+    let t1_auto=false, t2_auto=false;
+    function t1LayAll() { document.querySelectorAll('#shape-t1 .cell:not(.show)').forEach((c,i)=>setTimeout(()=>c.classList.add('show'),i*25)); }
+    function t2LayAll() { document.querySelectorAll('#shape-t2 .cell:not(.show)').forEach((c,i)=>setTimeout(()=>c.classList.add('show'),i*25)); }
+
+    const t1_w=6, t1_h=4, t1_total=24;
+    function initTask1() {
+        t1_auto=false; const sh=document.getElementById('shape-t1'); sh.innerHTML='';
+        for(let r=0;r<t1_h;r++) for(let c=0;c<t1_w;c++){
+            const cell=document.createElement('div'); cell.className='cell'; cell.dataset.r=r; cell.dataset.c=c;
+            cell.onpointerdown=e=>{e.preventDefault();e.stopPropagation();cell.classList.toggle('show');};
+            sh.appendChild(cell);
+        }
+        setupDragDrop();
+    }
+    function toggleQuickTools() { const p=document.getElementById('quick-tools'); p.style.display=p.style.display==='none'?'flex':'none'; }
+    function t1LayRow(){document.querySelectorAll('#shape-t1 .cell').forEach(c=>{if(c.dataset.r==0)c.classList.add('show');});}
+    function t1LayCol(){document.querySelectorAll('#shape-t1 .cell').forEach(c=>{if(c.dataset.c==0)c.classList.add('show');});}
+    function t1Clear(){document.querySelectorAll('#shape-t1 .cell').forEach(c=>c.classList.remove('show'));}
+    function setupDragDrop() {
+        const src=document.getElementById('source-tile'); let drag=null;
+        src.onpointerdown=e=>{
+            e.preventDefault();e.stopPropagation(); drag=document.createElement('div'); drag.className='dragging-tile'; document.body.appendChild(drag);
+            const mv=ev=>{if(!drag)return; const x=ev.clientX||(ev.touches&&ev.touches[0].clientX); const y=ev.clientY||(ev.touches&&ev.touches[0].clientY); drag.style.left=(x-20)+'px'; drag.style.top=(y-20)+'px';};
+            const dr=ev=>{if(!drag)return; const x=ev.clientX||(ev.changedTouches&&ev.changedTouches[0].clientX); const y=ev.clientY||(ev.changedTouches&&ev.changedTouches[0].clientY); drag.style.display='none'; const el=document.elementFromPoint(x,y); if(el&&el.classList.contains('cell'))el.classList.add('show'); drag.remove();drag=null; document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',dr);};
+            document.addEventListener('pointermove',mv); document.addEventListener('pointerup',dr);
+        };
+    }
+    function checkTask1() {
+        const r=parseInt(document.getElementById('t1-row').value), c=parseInt(document.getElementById('t1-col').value), a=parseInt(document.getElementById('t1-all').value);
+        if(!t1_auto && !isNaN(r) && !isNaN(c) && ((r===t1_w&&c===t1_h)||(r===t1_h&&c===t1_w))) {
+            t1_auto=true; closeKb();
+            document.getElementById('t1-desc').innerHTML="<span style='color:#27ae60;font-weight:bold;'>✨ 規律正確！自動驗證中...</span>";
+            setTimeout(t1LayAll, 200);
+        }
+        if(((r===t1_w&&c===t1_h)||(r===t1_h&&c===t1_w)) && a===t1_total) {
+            closeKb(); document.querySelectorAll('.t1-input').forEach(i=>i.classList.add('correct'));
+            setTimeout(showToast, 400);
+        }
+    }
+    document.querySelectorAll('.t1-input').forEach(i=>i.addEventListener('input',checkTask1));
+
+    let t2_w=0, t2_h=0, t2_total=0;
+    function initTask2() {
+        t2_auto=false; let dup=true;
+        while(dup){t2_w=Math.floor(Math.random()*5)+4; t2_h=Math.floor(Math.random()*4)+3; if(t2_w===t2_h)t2_w+=1; dup=previousShapes.some(s=>(s.w===t2_w&&s.h===t2_h)||(s.w===t2_h&&s.h===t2_w));}
+        t2_total=t2_w*t2_h;
+        document.getElementById('t2-lbl-w').innerText=t2_w+' cm';
+        document.getElementById('t2-lbl-h').innerText=t2_h+' cm';
+        const sh=document.getElementById('shape-t2'); sh.innerHTML='';
+        sh.style.width=(t2_w*40)+'px'; sh.style.height=(t2_h*40)+'px';
+        sh.style.gridTemplateColumns=`repeat(${t2_w},1fr)`; sh.style.gridTemplateRows=`repeat(${t2_h},1fr)`;
+        for(let r=0;r<t2_h;r++) for(let c=0;c<t2_w;c++){
+            const cell=document.createElement('div'); cell.className='cell'; cell.dataset.r=r; cell.dataset.c=c;
+            sh.appendChild(cell);
+        }
+        document.getElementById('task-counter').innerText='2/2';
+        document.getElementById('stage-t1').style.display='none';
+        document.getElementById('stage-t2').style.display='block';
+        document.getElementById('btn-t2-row').disabled=false; document.getElementById('btn-t2-col').disabled=true;
+        document.getElementById('btn-t2-all').style.cssText="background:#bdc3c7;box-shadow:0 3px 0 #95a5a6;cursor:default;";
+        document.getElementById('btn-t2-all').innerText='3. 驗證鋪滿'; document.getElementById('btn-t2-all').disabled=true;
+        document.getElementById('t2-inputs').style.display='none';
+        document.querySelectorAll('.t2-input').forEach(i=>{i.value='';i.classList.remove('correct');});
+    }
+    function t2LayRow(){document.querySelectorAll('#shape-t2 .cell').forEach(c=>{if(c.dataset.r==0)c.classList.add('show');});document.getElementById('btn-t2-row').disabled=true;document.getElementById('btn-t2-col').disabled=false;document.getElementById('t2-inputs').style.display='flex';}
+    function t2LayCol(){document.querySelectorAll('#shape-t2 .cell').forEach(c=>{if(c.dataset.c==0)c.classList.add('show');});document.getElementById('btn-t2-col').disabled=true;}
+    function checkTask2() {
+        const r=parseInt(document.getElementById('t2-row').value), c=parseInt(document.getElementById('t2-col').value), a=parseInt(document.getElementById('t2-all').value);
+        if(!t2_auto && !isNaN(r) && !isNaN(c) && ((r===t2_w&&c===t2_h)||(r===t2_h&&c===t2_w))) {
+            t2_auto=true; closeKb();
+            const btn=document.getElementById('btn-t2-all');
+            btn.style.cssText="background:#27ae60;box-shadow:0 3px 0 #1e8449;color:white;cursor:pointer;";
+            btn.innerText='✨ 自動鋪滿驗證'; btn.disabled=false; btn.onclick=t2LayAll;
+            setTimeout(t2LayAll, 200);
+        }
+        if(((r===t2_w&&c===t2_h)||(r===t2_h&&c===t2_w)) && a===t2_total) {
+            closeKb(); document.querySelectorAll('.t2-input').forEach(i=>i.classList.add('correct'));
+            setTimeout(showToast, 400);
+        }
+    }
+    document.querySelectorAll('.t2-input').forEach(i=>i.addEventListener('input',checkTask2));
+
+    function showToast() {
+        document.getElementById('stage-t1').classList.add('dimmed');
+        document.getElementById('stage-t2').classList.add('dimmed');
+        document.getElementById('ws-check').checked = false;
+        document.getElementById('toast-next-btn').classList.remove('active');
+        document.getElementById('toast-next-btn').disabled = true;
+        document.getElementById('worksheet-toast').classList.add('show');
+    }
+    function enableNextBtn() {
+        const checked = document.getElementById('ws-check').checked;
+        const btn = document.getElementById('toast-next-btn');
+        if(checked) {
+            btn.classList.add('active');
+            btn.disabled = false;
+        } else {
+            btn.classList.remove('active');
+            btn.disabled = true;
+        }
+    }
+
+    let currentStage = 1;
+    function nextTask() {
+        document.getElementById('worksheet-toast').classList.remove('show');
+        document.getElementById('stage-t1').classList.remove('dimmed');
+        document.getElementById('stage-t2').classList.remove('dimmed');
+        
+        if(currentStage===1){
+            saveToHistory(t1_w,t1_h,t1_total); 
+            currentStage=2; 
+            initTask2();
+        } else if(currentStage===2){
+            saveToHistory(t2_w,t2_h,t2_total); 
+            currentStage=3; 
+            document.getElementById('stage-t2').style.display='none'; 
+            document.getElementById('final-area').style.display='flex';
+        }
+    }
+    initTask1();
+</script>
+</body>
+</html>
