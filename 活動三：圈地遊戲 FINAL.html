@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>第 4 頁：圈地大作戰 (20x12 修正版)</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f4f7f6;
+            margin: 0; padding: 0; 
+            height: 100vh; height: 100dvh; 
+            display: flex; flex-direction: column;
+            overflow: hidden; user-select: none; -webkit-user-select: none;
+            -webkit-touch-callout: none; touch-action: none;
+        }
+
+        /* --- 頂部導航 --- */
+        header {
+            background-color: #2c3e50; color: white; padding: 10px 20px; display: flex;
+            justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 100;
+        }
+        h1 { margin: 0; font-size: 20px; }
+        .instructions { font-size: 14px; color: #bdc3c7; margin-left: 15px; }
+
+        /* --- 遊戲主視覺與記分板 --- */
+        #capture-area { flex: 1; display: flex; flex-direction: column; width: 100%; background-color: #f4f7f6; }
+
+        .scoreboard {
+            display: flex; justify-content: center; align-items: center; gap: 30px;
+            background-color: #fff; padding: 6px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 90; width: 100%;
+        }
+        .player-card {
+            display: flex; align-items: center; gap: 10px; padding: 6px 16px; border-radius: 50px;
+            font-size: 18px; font-weight: bold; transition: all 0.3s; border: 3px solid transparent; opacity: 0.5;
+        }
+        .p1-card { color: #e74c3c; background-color: #fadbd8; }
+        .p2-card { color: #2980b9; background-color: #d4e6f1; }
+        
+        .active-turn.p1-card { border-color: #e74c3c; opacity: 1; transform: scale(1.08); box-shadow: 0 5px 15px rgba(231,76,60,0.3); }
+        .active-turn.p2-card { border-color: #2980b9; opacity: 1; transform: scale(1.08); box-shadow: 0 5px 15px rgba(41,128,185,0.3); }
+        
+        /* --- 遊戲主區域 (20x12) --- */
+        .game-container {
+            flex: 1; display: flex; justify-content: center; align-items: center; position: relative; padding: 10px;
+        }
+        .grid-wrapper {
+            position: relative; background-color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 4px solid #34495e; border-radius: 4px; overflow: hidden;
+            width: 600px; height: 360px; touch-action: none; 
+        }
+        .grid-background {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-size: 30px 30px; 
+            background-image: linear-gradient(to right, #e0e0e0 1px, transparent 1px),
+                              linear-gradient(to bottom, #e0e0e0 1px, transparent 1px);
+            z-index: 1; pointer-events: none;
+        }
+
+        .home-base { position: absolute; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; font-size: 20px; z-index: 2; opacity: 0.8; }
+        .p1-home { top: 0; left: 0; background-color: rgba(231,76,60,0.3); }
+        .p2-home { bottom: 0; right: 0; background-color: rgba(41,128,185,0.3); }
+
+        .territory {
+            position: absolute; display: flex; justify-content: center; align-items: center;
+            font-size: 14px; font-weight: bold; color: white; box-sizing: border-box;
+            border: 2px solid white; z-index: 5; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .terr-p1 { background-color: rgba(231,76,60,0.85); border-color: #c0392b; }
+        .terr-p2 { background-color: rgba(41,128,185,0.85); border-color: #1f618d; }
+
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+
+        /* 成功時統一顯示綠色半透明 */
+        .preview-box {
+            position: absolute; z-index: 10; pointer-events: none; display: flex; justify-content: center; align-items: center;
+            border: 4px dashed; box-sizing: border-box; box-shadow: 0 5px 15px rgba(0,0,0,0.5); 
+        }
+        .preview-valid { background-color: rgba(46, 204, 113, 0.8); border-color: #1e8449; }
+        .preview-invalid { background-color: rgba(231, 76, 60, 0.8); border-color: #922b21; }
+
+        /* --- 底部控制面板 --- */
+        .bottom-panel {
+            width: 100%; box-sizing: border-box; display: flex; justify-content: center; align-items: center;
+            z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); transition: all 0.3s ease;
+        }
+
+        #control-panel { height: 85px; background-color: #34495e; gap: 30px; } 
+        
+        .dice-container { display: flex; gap: 15px; align-items: center; }
+        .dice {
+            width: 55px; height: 55px; background-color: #f1c40f; border-radius: 12px;
+            display: flex; justify-content: center; align-items: center; font-size: 28px; font-weight: bold; color: #d35400;
+            box-shadow: inset -3px -3px 0 rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.2); border: 2px solid #f39c12;
+        }
+        .dice.rolling { animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(-15deg); } 100% { transform: rotate(0deg); } }
+        
+        #end-panel { height: 85px; background-color: #ecf0f1; display: none; }
+        .end-info { display: flex; width: 100%; max-width: 900px; justify-content: space-around; align-items: center; font-size: 20px; font-weight: bold; }
+        #end-winner { font-size: 22px; padding: 6px 20px; border-radius: 10px; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+
+        .btn { padding: 10px 25px; font-size: 18px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+        .btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+        
+        .btn-roll { background-color: #2ecc71; } 
+        .btn-skip { background-color: #95a5a6; } 
+        .btn-restart { background-color: #3498db; } 
+        .btn-cancel { background-color: #e74c3c; font-size: 16px; padding: 8px 15px; border-radius: 8px; box-shadow: 0 3px 0 #c0392b; }
+
+        /* --- 歷史回顧按鈕 --- */
+        #btn-history {
+            position: fixed; bottom: 100px; left: 20px; background-color: #8e44ad; font-size: 16px; padding: 12px 20px;
+            border-radius: 50px; display: none; z-index: 150; box-shadow: 0 5px 15px rgba(142, 68, 173, 0.4);
+            border: 2px solid #fff; color: white;
+        }
+        
+        .history-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); 
+            display: none; justify-content: center; align-items: center; z-index: 6000; backdrop-filter: blur(5px);
+        }
+        .history-box {
+            background: #f4f7f6; padding: 20px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; position: relative;
+        }
+        .history-close {
+            position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #c0392b; 
+            background: none; border: none; cursor: pointer;
+        }
+        .hist-scale-wrapper { transform: scale(0.85); transform-origin: top center; margin-bottom: -40px; margin-top: 10px; }
+
+        /* --- 簡介面板 (對照圖片文字修正) --- */
+        .intro-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(44, 62, 80, 0.95); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .intro-box {
+            background: #fff; padding: 30px 40px; border-radius: 20px;
+            width: 85%; max-width: 800px; max-height: 90dvh; overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: left;
+        }
+        .intro-title { color: #2c3e50; font-size: 28px; text-align: center; border-bottom: 3px dashed #f1c40f; padding-bottom: 10px; margin-top: 0; }
+        
+        .rule-group { margin-top: 20px; }
+        .rule-group h3 { color: #e67e22; font-size: 22px; margin-bottom: 10px; }
+        .rule-list { list-style: none; padding-left: 0; }
+        .rule-list li { margin-bottom: 10px; display: flex; align-items: flex-start; line-height: 1.6; font-size: 18px; }
+        .rule-list li::before { content: '👉'; margin-right: 10px; }
+        .highlight-text { color: #c0392b; font-weight: bold; }
+
+        .btn-start-game {
+            display: block; width: 100%; max-width: 350px; margin: 20px auto 0 auto;
+            background-color: #27ae60; color: white; font-size: 22px; font-weight: bold;
+            padding: 12px 25px; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 5px 0 #1e8449;
+        }
+
+        #toast {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(44, 62, 80, 0.95); color: white; padding: 12px 25px;
+            border-radius: 50px; font-size: 18px; font-weight: bold; z-index: 5000;
+            display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.3); animation: fadeDown 0.3s;
+        }
+        @keyframes fadeDown { 0% { top: 60px; opacity: 0; } 100% { top: 80px; opacity: 1; } }
+
+        /* --- 公式彈窗 --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); 
+            display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px);
+        }
+        .formula-box {
+            background: white; padding: 20px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            text-align: center; width: 400px;
+        }
+        .formula-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .vk-input {
+            width: 50px; height: 45px; text-align: center; font-size: 22px; font-weight: bold; border: 3px solid #bdc3c7;
+            border-radius: 8px; cursor: pointer; outline: none; background: white;
+        }
+        .vk-input.active { border-color: #f39c12; background-color: #fff9e6; }
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; }
+        .num-btn { background: #ecf0f1; border: none; border-radius: 8px; padding: 12px 0; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #bdc3c7; }
+        .btn-ok { background: #27ae60; color: white; grid-column: span 2; box-shadow: 0 3px 0 #229954; }
+    </style>
+</head>
+<body>
+
+<!-- 簡介面板 (還原圖片第一版文字) -->
+<div class="intro-overlay" id="intro-overlay">
+    <div class="intro-box">
+        <h2 class="intro-title">🎮 歡迎來到《面積圈地大作戰》</h2>
+        
+        <div class="rule-group">
+            <h3>🎲 遊戲玩法</h3>
+            <ul class="rule-list">
+                <li>雙方分紅、藍兩隊，輪流點擊「擲骰子」。</li>
+                <li>將骰出的點數作為長和寬，在畫布上<strong>按住拖曳</strong>畫出長方形。</li>
+                <li>畫完後，必須寫出正確的 <span class="highlight-text">「長 × 寬 = 面積」</span> 公式才能成功佔領地盤！</li>
+            </ul>
+        </div>
+
+        <div class="rule-group">
+            <h3>⚠️ 佔地規則與注意事項</h3>
+            <ul class="rule-list">
+                <li><strong>起點限制：</strong> 第一步必須從你們隊伍專屬的角落星星【⭐】出發。</li>
+                <li><strong>相連限制：</strong> 之後的每個新地盤，都必須和自己的舊地盤「邊靠邊」相連喔！</li>
+                <li><strong>重疊限制：</strong> 絕對不能疊在任何已經被佔領的地盤上。</li>
+                <li><strong>結束條件：</strong> 如果找不到空位畫圖，請點擊「跳過」。<span class="highlight-text">累積跳過 5 次，遊戲就會強制結束並結算！</span></li>
+            </ul>
+        </div>
+
+        <button class="btn-start-game" onclick="startGame()">🚀 我準備好了，開始遊戲！</button>
+    </div>
+</div>
+
+<header>
+    <h1>第 4 頁：圈地大作戰</h1>
+    <button class="btn btn-skip" style="padding: 6px 12px; font-size: 14px;" onclick="resetGame()">重新開始</button>
+</header>
+
+<button class="btn" id="btn-history" onclick="showHistory()">👀 顯示上一局戰況</button>
+
+<div id="capture-area">
+    <div class="scoreboard">
+        <div class="player-card p1-card active-turn" id="card-p1">🚩 紅隊面積：<span id="score-p1">0</span></div>
+        <div class="player-card p2-card" id="card-p2">🏁 藍隊面積：<span id="score-p2">0</span></div>
+    </div>
+
+    <div class="game-container">
+        <div class="grid-wrapper" id="grid-wrapper">
+            <div class="grid-background"></div>
+            <div class="home-base p1-home" id="p1-start">⭐</div>
+            <div class="home-base p2-home" id="p2-start">⭐</div>
+            <div id="preview-box" class="preview-box" style="display:none;"></div>
+            <div id="territory-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 底部控制列 -->
+<div class="bottom-panel" id="control-panel">
+    <div class="dice-container">
+        <div class="dice" id="dice1">?</div>
+        <div class="dice" id="dice2">?</div>
+    </div>
+    <button class="btn btn-roll" id="btn-roll" onclick="rollDice()">🎲 擲骰子</button>
+    <button class="btn btn-skip" id="btn-skip" onclick="skipTurn()">⏭ 無法畫圖 (已累積跳過 0/5)</button>
+</div>
+
+<!-- 底部結算列 -->
+<div class="bottom-panel" id="end-panel">
+    <div class="end-info">
+        <div id="end-winner">紅隊獲勝！</div>
+        <div style="color:#c0392b;">🚩 紅隊：<span id="end-score1">0</span></div>
+        <div style="color:#2980b9;">🏁 藍隊：<span id="end-score2">0</span></div>
+        <button class="btn btn-restart" onclick="resetGameFromEnd()">🎮 再玩一局</button>
+    </div>
+</div>
+
+<!-- 歷史戰況彈窗 -->
+<div class="history-overlay" id="history-modal">
+    <div class="history-box">
+        <button class="history-close" onclick="closeHistory()">✖</button>
+        <h2 style="color: #2c3e50;">👀 上一局戰況</h2>
+        <div class="scoreboard" style="box-shadow: none;">
+            <div class="player-card p1-card" style="opacity: 1;">🚩：<span id="hist-score1">0</span></div>
+            <div class="player-card p2-card" style="opacity: 1;">🏁：<span id="hist-score2">0</span></div>
+        </div>
+        <div class="hist-scale-wrapper">
+            <div class="grid-wrapper">
+                <div class="grid-background"></div>
+                <div id="hist-territory-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast">提示訊息</div>
+
+<!-- 公式輸入 -->
+<div class="modal-overlay" id="formula-modal">
+    <div class="formula-box">
+        <div class="formula-header">
+            <h3>✏️ 寫出面積公式</h3>
+            <button class="btn btn-cancel" onclick="cancelDrawing()">✖ 取消</button>
+        </div>
+        <div class="formula-inputs">
+            <input type="text" readonly class="vk-input active" id="in-l"> ×
+            <input type="text" readonly class="vk-input" id="in-w"> =
+            <input type="text" readonly class="vk-input" id="in-a">
+        </div>
+        <div class="numpad">
+            <button class="num-btn" onpointerdown="vkPress('1')">1</button>
+            <button class="num-btn" onpointerdown="vkPress('2')">2</button>
+            <button class="num-btn" onpointerdown="vkPress('3')">3</button>
+            <button class="num-btn" onpointerdown="vkPress('4')">4</button>
+            <button class="num-btn" onpointerdown="vkPress('5')">5</button>
+            <button class="num-btn" onpointerdown="vkPress('6')">6</button>
+            <button class="num-btn" onpointerdown="vkPress('7')">7</button>
+            <button class="num-btn" onpointerdown="vkPress('8')">8</button>
+            <button class="num-btn" onpointerdown="vkPress('9')">9</button>
+            <button class="num-btn" onpointerdown="vkDel()">⌫</button>
+            <button class="num-btn" onpointerdown="vkPress('0')">0</button>
+            <button class="num-btn" style="background:#f39c12; color:white;" onpointerdown="vkClear()">C</button>
+            <button class="num-btn btn-ok" onpointerdown="submitFormula()">確認佔領</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 遊戲參數：20x12, 固定由紅隊(1)開始
+    const COLS = 20; const ROWS = 12; const CELL_SIZE = 30; 
+    let board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    let currentPlayer = 1, score1 = 0, score2 = 0, skipsP1 = 0, skipsP2 = 0;
+    let currentDice = [0, 0], phase = 'roll', lastGameData = null;
+
+    const gridWrapper = document.getElementById('grid-wrapper'), previewBox = document.getElementById('preview-box');
+    const terrContainer = document.getElementById('territory-container'), btnRoll = document.getElementById('btn-roll'), btnSkip = document.getElementById('btn-skip');
+    const dice1El = document.getElementById('dice1'), dice2El = document.getElementById('dice2');
+
+    function startGame() { document.getElementById('intro-overlay').style.display = 'none'; }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    }
+
+    function switchTurn() {
+        currentPlayer = currentPlayer === 1 ? 2 : 1;
+        updateUI();
+        phase = 'roll'; dice1El.textContent = '?'; dice2El.textContent = '?';
+        btnRoll.disabled = false; btnRoll.style.backgroundColor = '#2ecc71';
+    }
+
+    function updateUI() {
+        document.getElementById('card-p1').classList.toggle('active-turn', currentPlayer === 1);
+        document.getElementById('card-p2').classList.toggle('active-turn', currentPlayer === 2);
+        const currentSkips = currentPlayer === 1 ? skipsP1 : skipsP2;
+        btnSkip.innerHTML = `⏭ 無法畫圖 (已累積跳過 ${currentSkips}/5)`;
+    }
+
+    function rollDice() {
+        if(phase !== 'roll') return; phase = 'rolling';
+        dice1El.classList.add('rolling'); dice2El.classList.add('rolling');
+        setTimeout(() => {
+            dice1El.classList.remove('rolling'); dice2El.classList.remove('rolling');
+            currentDice = [Math.floor(Math.random()*8)+1, Math.floor(Math.random()*8)+1];
+            dice1El.textContent = currentDice[0]; dice2El.textContent = currentDice[1];
+            phase = 'draw';
+        }, 500);
+    }
+
+    function skipTurn() {
+        if(phase === 'formula' || phase === 'rolling') return;
+        if(currentPlayer === 1) skipsP1++; else skipsP2++;
+        if(skipsP1 >= 5 || skipsP2 >= 5) {
+            endGame();
+        } else {
+            switchTurn();
+        }
+    }
+
+    function endGame() {
+        phase = 'end';
+        document.getElementById('control-panel').style.display = 'none';
+        document.getElementById('end-panel').style.display = 'flex';
+        document.getElementById('end-score1').textContent = score1;
+        document.getElementById('end-score2').textContent = score2;
+        const wEl = document.getElementById('end-winner');
+        if(score1 > score2) { wEl.textContent = "🏆 紅隊獲勝！"; wEl.style.backgroundColor = "#c0392b"; }
+        else if(score2 > score1) { wEl.textContent = "🏆 藍隊獲勝！"; wEl.style.backgroundColor = "#2980b9"; }
+        else { wEl.textContent = "🤝 平手！"; wEl.style.backgroundColor = "#f39c12"; }
+        lastGameData = { score1, score2, html: terrContainer.innerHTML };
+        document.getElementById('btn-history').style.display = 'block';
+    }
+
+    function resetGame() {
+        board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+        score1 = 0; score2 = 0; skipsP1 = 0; skipsP2 = 0;
+        terrContainer.innerHTML = '';
+        document.getElementById('score-p1').textContent = 0; document.getElementById('score-p2').textContent = 0;
+        document.getElementById('p1-start').style.display = 'flex'; document.getElementById('p2-start').style.display = 'flex';
+        currentPlayer = 1; // 修正：重設時固定由紅隊開始
+        updateUI();
+        phase = 'roll'; dice1El.textContent = '?'; dice2El.textContent = '?';
+        btnRoll.disabled = false; btnRoll.style.backgroundColor = '#2ecc71';
+    }
+
+    function resetGameFromEnd() {
+        document.getElementById('end-panel').style.display = 'none';
+        document.getElementById('control-panel').style.display = 'flex';
+        resetGame();
+    }
+
+    function showHistory() {
+        if(!lastGameData) return;
+        document.getElementById('hist-score1').textContent = lastGameData.score1;
+        document.getElementById('hist-score2').textContent = lastGameData.score2;
+        document.getElementById('hist-territory-container').innerHTML = lastGameData.html;
+        document.getElementById('history-modal').style.display = 'flex';
+    }
+    function closeHistory() { document.getElementById('history-modal').style.display = 'none'; }
+
+    // 拖曳與預覽邏輯
+    let isDrawing = false, startC = 0, startR = 0, currentRect = null;
+    gridWrapper.addEventListener('pointerdown', e => {
+        if(phase !== 'draw') return;
+        const rect = gridWrapper.getBoundingClientRect();
+        startC = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+        startR = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+        if(startC < 0 || startC >= COLS || startR < 0 || startR >= ROWS) return;
+        isDrawing = true; previewBox.style.display = 'flex';
+    });
+
+    document.addEventListener('pointermove', e => {
+        if(!isDrawing) return;
+        const rect = gridWrapper.getBoundingClientRect();
+        let c = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+        let r = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+        c = Math.max(0, Math.min(c, COLS-1)); r = Math.max(0, Math.min(r, ROWS-1));
+        let minC = Math.min(startC, c), minR = Math.min(startR, r);
+        let w = Math.abs(c - startC) + 1, h = Math.abs(r - startR) + 1;
+        previewBox.style.left = minC*30+'px'; previewBox.style.top = minR*30+'px';
+        previewBox.style.width = w*30+'px'; previewBox.style.height = h*30+'px';
+        currentRect = {c: minC, r: minR, w, h};
+        // 修正：成功時顯示綠色半透明圖框
+        previewBox.className = 'preview-box ' + (isValid(currentRect) ? 'preview-valid' : 'preview-invalid');
+    });
+
+    document.addEventListener('pointerup', () => {
+        if(!isDrawing) return; isDrawing = false;
+        if(isValid(currentRect)) { phase = 'formula'; openFormulaModal(); }
+        else { previewBox.style.display = 'none'; }
+    });
+
+    function isValid(rect) {
+        if(!rect) return false;
+        const {w, h, c, r} = rect;
+        const d1 = currentDice[0], d2 = currentDice[1];
+        if(!((w===d1 && h===d2) || (w===d2 && h===d1))) return false;
+        for(let i=r; i<r+h; i++) for(let j=c; j<c+w; j++) if(board[i][j]!==0) return false;
+        const pScore = currentPlayer === 1 ? score1 : score2;
+        if(pScore === 0) return currentPlayer===1 ? (c===0 && r===0) : (c+w===COLS && r+h===ROWS);
+        for(let i=r; i<r+h; i++) {
+            if(c>0 && board[i][c-1]===currentPlayer) return true;
+            if(c+w<COLS && board[i][c+w]===currentPlayer) return true;
+        }
+        for(let j=c; j<c+w; j++) {
+            if(r>0 && board[r-1][j]===currentPlayer) return true;
+            if(r+h<ROWS && board[r+h][j]===currentPlayer) return true;
+        }
+        return false;
+    }
+
+    const inL = document.getElementById('in-l'), inW = document.getElementById('in-w'), inA = document.getElementById('in-a');
+    let vkActive = inL;
+    function openFormulaModal() {
+        document.getElementById('formula-modal').style.display = 'flex';
+        inL.value = inW.value = inA.value = ''; vkActive = inL;
+        inL.className = 'vk-input active'; inW.className = inA.className = 'vk-input';
+    }
+    function cancelDrawing() { document.getElementById('formula-modal').style.display = 'none'; previewBox.style.display = 'none'; phase = 'draw'; }
+    function vkPress(n) { if(vkActive.value.length < 3) vkActive.value += n; }
+    function vkDel() { vkActive.value = vkActive.value.slice(0,-1); }
+    function vkClear() { vkActive.value = ''; }
+    [inL, inW, inA].forEach(inp => inp.addEventListener('pointerdown', () => {
+        [inL, inW, inA].forEach(i => i.classList.remove('active'));
+        inp.classList.add('active'); vkActive = inp;
+    }));
+
+    function submitFormula() {
+        const l = parseInt(inL.value), w = parseInt(inW.value), a = parseInt(inA.value);
+        if(((l===currentRect.w && w===currentRect.h) || (l===currentRect.h && w===currentRect.w)) && a===l*w) {
+            document.getElementById('formula-modal').style.display = 'none';
+            lockTerritory(l, w, a);
+        } else showToast("公式錯誤！");
+    }
+
+    function lockTerritory(l, w, a) {
+        for(let i=currentRect.r; i<currentRect.r+currentRect.h; i++) 
+            for(let j=currentRect.c; j<currentRect.c+currentRect.w; j++) board[i][j] = currentPlayer;
+        const terr = document.createElement('div');
+        terr.className = `territory terr-p${currentPlayer}`;
+        terr.style.left = currentRect.c*30+'px'; terr.style.top = currentRect.r*30+'px';
+        terr.style.width = currentRect.w*30+'px'; terr.style.height = currentRect.h*30+'px';
+        terr.innerHTML = a===1 ? "1" : `${l}×${w}=${a}`;
+        terrContainer.appendChild(terr);
+        previewBox.style.display = 'none';
+        if(currentPlayer === 1) { score1 += a; document.getElementById('score-p1').textContent = score1; document.getElementById('p1-start').style.display = 'none'; }
+        else { score2 += a; document.getElementById('score-p2').textContent = score2; document.getElementById('p2-start').style.display = 'none'; }
+        switchTurn();
+    }
+    resetGame();
+</script>
+</body>
+</html>
