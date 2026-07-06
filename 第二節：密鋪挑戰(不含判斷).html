@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鋪磚挑戰（自由探索版）</title>
+    <style>
+        :root {
+            --ipad-bg: #f4f6f9;
+            --land-border: #2c3e50;
+            --purple-tile: #9b59b6;
+            --blue-tile: #3498db;
+        }
+
+        body {
+            font-family: '微軟正黑體', sans-serif;
+            background-color: var(--ipad-bg);
+            text-align: center;
+            user-select: none;
+            overflow-y: auto; 
+            margin: 0;
+            padding-bottom: 160px; 
+            touch-action: pan-y; 
+        }
+
+        h1 { color: #2c3e50; margin: 25px 0 5px 0; font-size: 28px; }
+        .subtitle { font-size: 16px; color: #7f8c8d; margin-bottom: 25px; }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            width: 92vw; 
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #bdc3c7;
+            gap: 3px;
+            border: 3px solid #7f8c8d;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background-color: #dfe6e9;
+            padding: 15px;
+            font-weight: bold;
+            font-size: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: #2d3436;
+        }
+
+        .cell {
+            background-color: white;
+            height: 190px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .land {
+            border: 2px solid var(--land-border);
+            background-color: #ffffff;
+            position: relative;
+            box-sizing: content-box;
+        }
+
+        /* 工具列優化 */
+        .palette {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 80px;
+            padding: 25px 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            z-index: 1000;
+            touch-action: none; 
+            border-top: 1px solid #ddd;
+        }
+
+        .source-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: none; 
+        }
+
+        .sq-purple { width: 40px; height: 40px; background-color: var(--purple-tile); border: 1.5px solid #fff; box-sizing: border-box; border-radius: 2px; }
+        .sq-blue { width: 80px; height: 80px; background-color: var(--blue-tile); border: 1.5px solid #fff; box-sizing: border-box; border-radius: 2px; }
+
+        .dragging {
+            position: fixed;
+            pointer-events: none;
+            z-index: 2000;
+            box-shadow: 5px 5px 20px rgba(0,0,0,0.4);
+            opacity: 0.9;
+        }
+
+        .placed-tile {
+            position: absolute;
+            border: 1px solid rgba(255,255,255,0.7);
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        button { 
+            padding: 15px 30px; 
+            border-radius: 12px; 
+            border: none; 
+            background: #2c3e50; 
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🏰 鋪磚挑戰</h1>
+    <div class="subtitle">動動手填滿空間。觀察看看：哪種磚塊可以鋪得最完整？</div>
+
+    <div class="grid-container">
+        <!-- 標題欄 -->
+        <div class="header">邊長 1cm</div>
+        <div class="header">邊長 2cm</div>
+
+        <!-- 第一組: 4x4 (160x160px) -->
+        <div class="cell"><div id="L1" class="land" style="width:160px; height:160px;"></div></div>
+        <div class="cell"><div id="R1" class="land" style="width:160px; height:160px;"></div></div>
+
+        <!-- 第二組: 3x4 (160x120px) -->
+        <div class="cell"><div id="L2" class="land" style="width:160px; height:120px;"></div></div>
+        <div class="cell"><div id="R2" class="land" style="width:160px; height:120px;"></div></div>
+
+        <!-- 第三組: 2x4 (160x80px) -->
+        <div class="cell"><div id="L3" class="land" style="width:160px; height:80px;"></div></div>
+        <div class="cell"><div id="R3" class="land" style="width:160px; height:80px;"></div></div>
+
+        <!-- 第四組: 1x4 (160x40px) -->
+        <div class="cell"><div id="L4" class="land" style="width:160px; height:40px;"></div></div>
+        <div class="cell"><div id="R4" class="land" style="width:160px; height:40px;"></div></div>
+    </div>
+
+    <div class="palette">
+        <div class="source-box" onmousedown="grab(event, 40, '#9b59b6', 'L')" ontouchstart="grab(event, 40, '#9b59b6', 'L')">
+            <div class="sq-purple"></div>
+            <div style="margin-top:8px; font-weight:bold; color:#555;">1cm 磚塊</div>
+        </div>
+        
+        <button onclick="location.reload()">🔄 全部清除</button>
+
+        <div class="source-box" onmousedown="grab(event, 80, '#3498db', 'R')" ontouchstart="grab(event, 80, '#3498db', 'R')">
+            <div class="sq-blue"></div>
+            <div style="margin-top:8px; font-weight:bold; color:#555;">2cm 磚塊</div>
+        </div>
+    </div>
+
+    <script>
+        let dragEl = null;
+        let dSize = 0;
+        let dColor = '';
+        let dSide = ''; 
+
+        function grab(e, size, color, side) {
+            const touch = e.touches ? e.touches[0] : e;
+            dSize = size;
+            dColor = color;
+            dSide = side;
+
+            dragEl = document.createElement('div');
+            dragEl.className = 'dragging';
+            dragEl.style.width = size + 'px';
+            dragEl.style.height = size + 'px';
+            dragEl.style.backgroundColor = color;
+            document.body.appendChild(dragEl);
+            
+            updatePos(touch.clientX, touch.clientY);
+
+            const move = (ev) => {
+                if (ev.cancelable) ev.preventDefault(); 
+                const t = ev.touches ? ev.touches[0] : ev;
+                updatePos(t.clientX, t.clientY);
+            };
+
+            const stop = (ev) => {
+                const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+                putDown(t.clientX, t.clientY);
+                window.removeEventListener('mousemove', move);
+                window.removeEventListener('touchmove', move);
+                window.removeEventListener('mouseup', stop);
+                window.removeEventListener('touchend', stop);
+                if (dragEl) dragEl.remove();
+                dragEl = null;
+            };
+
+            window.addEventListener('mousemove', move);
+            window.addEventListener('touchmove', move, { passive: false });
+            window.addEventListener('mouseup', stop);
+            window.addEventListener('touchend', stop);
+        }
+
+        function updatePos(clientX, clientY) {
+            if (!dragEl) return;
+            dragEl.style.left = (clientX - dSize / 2) + 'px';
+            dragEl.style.top = (clientY - dSize / 2) + 'px';
+        }
+
+        function putDown(clientX, clientY) {
+            const lands = dSide === 'L' ? ['L1','L2','L3','L4'] : ['R1','R2','R3','R4'];
+            
+            for (let id of lands) {
+                const el = document.getElementById(id);
+                const rect = el.getBoundingClientRect();
+
+                if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+                    let relX = clientX - rect.left;
+                    let relY = clientY - rect.top;
+
+                    let snapX = Math.floor(relX / dSize) * dSize;
+                    let snapY = Math.floor(relY / dSize) * dSize;
+
+                    // 邊界判定
+                    if (snapX + dSize > el.offsetWidth + 2 || snapY + dSize > el.offsetHeight + 2) {
+                        continue; 
+                    }
+
+                    // 重疊判定
+                    const isOverlap = Array.from(el.children).some(child => 
+                        Math.abs(parseInt(child.style.left) - snapX) < 5 && 
+                        Math.abs(parseInt(child.style.top) - snapY) < 5
+                    );
+
+                    if (!isOverlap) {
+                        const tile = document.createElement('div');
+                        tile.className = 'placed-tile';
+                        tile.style.width = dSize + 'px';
+                        tile.style.height = dSize + 'px';
+                        tile.style.left = snapX + 'px';
+                        tile.style.top = snapY + 'px';
+                        tile.style.backgroundColor = dColor;
+                        
+                        tile.onclick = () => { tile.remove(); };
+                        el.appendChild(tile);
+                    }
+                    break;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
