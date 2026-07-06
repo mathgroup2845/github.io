@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>破案關鍵：選用合適圖形測量</title>
+    <style>
+        :root {
+            --ipad-bg: #f8f9fa;
+            --sidebar-width: 280px;
+        }
+
+        body {
+            font-family: '微軟正黑體', sans-serif;
+            background-color: var(--ipad-bg);
+            text-align: center;
+            user-select: none;
+            overflow: hidden;
+            margin: 0;
+            touch-action: none; 
+        }
+
+        h1 { color: #2c3e50; margin: 15px 0 5px 0; font-size: 26px; letter-spacing: 1px; }
+
+        .main-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 0 10px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .stage-container {
+            position: relative;
+            width: 720px;
+            height: 400px;
+            border-bottom: 4px solid #7f8c8d;
+            background-color: #ecf0f1;
+            background-image: radial-gradient(#bdc3c7 1px, transparent 1px);
+            background-size: 60px 60px;
+            border-radius: 8px;
+        }
+
+        .notebook {
+            width: var(--sidebar-width);
+            background-color: #fff;
+            border: 2px solid #34495e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+
+        .notebook h3 { margin: 0 0 10px 0; color: #e67e22; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .note-row { margin-bottom: 15px; font-size: 16px; color: #34495e; }
+
+        input[type="number"] { width: 50px; font-size: 18px; text-align: center; border: 1px solid #bdc3c7; border-radius: 4px; }
+        select { font-size: 16px; border-radius: 4px; }
+
+        .land {
+            position: absolute;
+            border: 3px solid #2c3e50;
+            box-sizing: content-box; 
+            background-color: rgba(255,255,255,0.3);
+            overflow: hidden; /* 修正：開啟隱藏，確保任何溢出都不會顯示 */
+        }
+
+        #blueLand { width: 240px; height: 180px; top: 80px; left: 40px; background-color: rgba(52, 152, 219, 0.4); }
+        #redLand { width: 300px; height: 120px; top: 120px; left: 340px; background-color: rgba(231, 76, 60, 0.4); }
+
+        .palette {
+            margin-top: 15px;
+            padding: 10px 30px;
+            background-color: #fff;
+            border-radius: 50px;
+            display: inline-flex;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .tool-box { display: flex; flex-direction: column; align-items: center; touch-action: none; cursor: pointer; }
+        .tool-icon { 
+            width: 60px; height: 60px; 
+            display: flex; justify-content: center; align-items: center; 
+            border: 1px dashed #bdc3c7; background: #fafafa; 
+        }
+        .tool-label { margin-top: 4px; font-size: 13px; font-weight: bold; color: #7f8c8d; }
+
+        .tile { width: 60px; height: 60px; position: absolute; pointer-events: none; z-index: 10; }
+        .inner { width: 60px; height: 60px; box-sizing: border-box; }
+        
+        .square-shape .inner { background-color: #27ae60; border: 1px solid #fff; }
+        .circle-shape .inner { border-radius: 50%; background-color: #f39c12; border: 1px solid #d35400; }
+        .tri-up .inner { background-color: #8e44ad; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .tri-down .inner { background-color: #9b59b6; clip-path: polygon(0% 0%, 100% 0%, 50% 100%); }
+        
+        .dragging { position: fixed; pointer-events: none; z-index: 2000; opacity: 0.9; }
+        .placed-tile { pointer-events: auto; cursor: pointer; }
+
+        .btn-action { padding: 8px 20px; font-size: 16px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn-clear { background-color: #3498db; color: white; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>🔍 破案關鍵：選用合適圖形測量</h1>
+    
+    <div class="main-layout">
+        <div class="notebook">
+            <h3>📝 偵查筆記</h3>
+            <div class="note-row">
+                藍色土地用了<br>
+                <input type="number"> 個
+                <select id="unit-blue">
+                    <option>正方形</option><option>圓形</option><option>三角形</option>
+                </select>
+            </div>
+            <div class="note-row">
+                紅色土地用了<br>
+                <input type="number"> 個
+                <select id="unit-red">
+                    <option>正方形</option><option>圓形</option><option>三角形</option>
+                </select>
+            </div>
+            <button class="btn-action btn-clear" onclick="clearTiles()">🧹 清除圖形</button>
+            <button class="btn-action btn-reset" onclick="location.reload()">🔄 全部重置</button>
+        </div>
+
+        <div class="stage-container" id="stage">
+            <div id="blueLand" class="land"></div>
+            <div id="redLand" class="land"></div>
+        </div>
+    </div>
+
+    <div class="palette">
+        <div class="tool-box" onmousedown="initDrag(event, 'square-shape')" ontouchstart="initDrag(event, 'square-shape')">
+            <div class="tool-icon square-shape"><div class="inner"></div></div>
+            <div class="tool-label">正方形</div>
+        </div>
+        <div class="tool-box" onmousedown="initDrag(event, 'circle-shape')" ontouchstart="initDrag(event, 'circle-shape')">
+            <div class="tool-icon circle-shape"><div class="inner"></div></div>
+            <div class="tool-label">圓形</div>
+        </div>
+        <div class="tool-box" onmousedown="initDrag(event, 'tri-up')" ontouchstart="initDrag(event, 'tri-up')">
+            <div class="tool-icon tri-up"><div class="inner"></div></div>
+            <div class="tool-label">正三角</div>
+        </div>
+        <div class="tool-box" onmousedown="initDrag(event, 'tri-down')" ontouchstart="initDrag(event, 'tri-down')">
+            <div class="tool-icon tri-down"><div class="inner"></div></div>
+            <div class="tool-label">倒三角</div>
+        </div>
+    </div>
+
+    <script>
+        const blueLand = document.getElementById('blueLand');
+        const redLand = document.getElementById('redLand');
+        let dragItem = null;
+        let lockedMainType = null;
+        const GRID_SIZE = 60; 
+
+        function clearTiles() {
+            document.querySelectorAll('.placed-tile').forEach(t => t.remove());
+            lockedMainType = null;
+        }
+
+        function initDrag(e, type) {
+            e.preventDefault();
+            let mainType = '';
+            if (type.includes('square')) mainType = 'square';
+            else if (type.includes('circle')) mainType = 'circle';
+            else if (type.includes('tri')) mainType = 'triangle';
+
+            if (lockedMainType && lockedMainType !== mainType) {
+                alert("為了測量準確，請統一使用同一種單位的圖形！");
+                return;
+            }
+
+            const touch = e.touches ? e.touches[0] : e;
+            dragItem = document.createElement('div');
+            dragItem.className = `tile ${type} dragging`;
+            dragItem.innerHTML = '<div class="inner"></div>';
+            document.body.appendChild(dragItem);
+            
+            moveDrag(touch.clientX, touch.clientY);
+
+            const moveHandler = (ev) => {
+                const t = ev.touches ? ev.touches[0] : ev;
+                moveDrag(t.clientX, t.clientY);
+            };
+
+            const endHandler = (ev) => {
+                const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+                dropDrag(t.clientX, t.clientY, type, mainType);
+                window.removeEventListener('mousemove', moveHandler);
+                window.removeEventListener('touchmove', moveHandler);
+                window.removeEventListener('mouseup', endHandler);
+                window.removeEventListener('touchend', endHandler);
+                if (dragItem) { dragItem.remove(); dragItem = null; }
+            };
+
+            window.addEventListener('mousemove', moveHandler);
+            window.addEventListener('touchmove', moveHandler, { passive: false });
+            window.addEventListener('mouseup', endHandler);
+            window.addEventListener('touchend', endHandler);
+        }
+
+        function moveDrag(x, y) {
+            if (!dragItem) return;
+            dragItem.style.left = (x - 30) + 'px';
+            dragItem.style.top = (y - 30) + 'px';
+        }
+
+        function dropDrag(clientX, clientY, specificType, mainType) {
+            const blueRect = blueLand.getBoundingClientRect();
+            const redRect = redLand.getBoundingClientRect();
+            let target = null;
+
+            if (isInside(clientX, clientY, blueRect)) target = { el: blueLand, rect: blueRect };
+            else if (isInside(clientX, clientY, redRect)) target = { el: redLand, rect: redRect };
+
+            if (target) {
+                lockedMainType = mainType;
+                let relX = clientX - target.rect.left;
+                let relY = clientY - target.rect.top;
+                
+                let snapX, snapY;
+
+                if (specificType === 'tri-down') {
+                    // 倒三角形磁吸邏輯：吸附在半格位點 (30, 90, 150...)
+                    snapX = Math.floor((relX - 30) / GRID_SIZE) * GRID_SIZE + 30;
+                    snapY = Math.floor(relY / GRID_SIZE) * GRID_SIZE;
+                } else {
+                    // 其他圖形吸附在標準位點 (0, 60, 120...)
+                    snapX = Math.floor(relX / GRID_SIZE) * GRID_SIZE;
+                    snapY = Math.floor(relY / GRID_SIZE) * GRID_SIZE;
+                }
+
+                // --- 嚴格邊界檢查 ---
+                const landWidth = target.el.offsetWidth;
+                const landHeight = target.el.offsetHeight;
+
+                // 檢查是否超出右邊界 (考慮 3px 邊框誤差)
+                if (snapX + 60 > landWidth + 2) {
+                    // 如果是倒三角且超出，嘗試往左吸附一格，若還是超出則取消
+                    if (specificType === 'tri-down') snapX -= GRID_SIZE;
+                    else snapX = landWidth - 60;
+                }
+                
+                // 檢查是否超出左邊界
+                if (snapX < 0) snapX = 0;
+
+                // 檢查是否超出下邊界
+                if (snapY + 60 > landHeight + 2) {
+                    snapY = landHeight - 60;
+                }
+                if (snapY < 0) snapY = 0;
+
+                const tile = document.createElement('div');
+                tile.className = `tile ${specificType} placed-tile`;
+                tile.innerHTML = '<div class="inner"></div>';
+                tile.style.left = snapX + 'px';
+                tile.style.top = snapY + 'px';
+                
+                tile.onclick = (event) => {
+                    event.stopPropagation();
+                    tile.remove();
+                    if (target.el.querySelectorAll('.placed-tile').length === 0) {
+                        // 檢查所有領土是否都空了
+                        if (document.querySelectorAll('.placed-tile').length === 0) lockedMainType = null;
+                    }
+                };
+
+                target.el.appendChild(tile);
+            }
+        }
+
+        function isInside(x, y, rect) {
+            return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        }
+    </script>
+</body>
+</html>
