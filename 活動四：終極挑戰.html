@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>終極謎題：基德的秘密房間 (iPad 觸控修復版)</title>
+    <style>
+        /* ================= 平台基礎設定 (iPad Retina 優化) ================= */
+        body {
+            font-family: -apple-system, "Microsoft JhengHei", "PingFang TC", sans-serif;
+            background-color: #1a252f; 
+            background-image: radial-gradient(circle at 50% 0%, #2c3e50 0%, #1a252f 80%);
+            margin: 0; padding: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+            user-select: none; overflow: hidden; -webkit-user-select: none; -webkit-touch-callout: none;
+            -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* --- 頂部導航 --- */
+        header {
+            width: 100%; background-color: rgba(26, 37, 47, 0.9); border-bottom: 2px solid #f39c12;
+            color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; 
+            box-sizing: border-box; box-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 100; flex-shrink: 0;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
+        h1 { margin: 0; font-size: 24px; color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);}
+        .instructions { font-size: 16px; color: #bdc3c7; margin-left: 15px; }
+
+        /* --- 佈局容器 --- */
+        .app-container {
+            display: flex; flex-direction: row; flex: 1; width: 100%; height: calc(100dvh - 55px); overflow: hidden;
+        }
+
+        /* --- 左側主區域 (畫板) --- */
+        .main-stage {
+            flex: 65; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 10px 20px; box-sizing: border-box; position: relative;
+        }
+
+        .board-container {
+            background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 16px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 15px 30px rgba(0,0,0,0.4);
+            border: 2px solid #34495e; position: relative;
+        }
+
+        /* 網格大小設定 */
+        .grid {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            background-color: #2c3e50; border: 4px solid #f39c12; box-shadow: 0 0 30px rgba(243,156,18,0.2);
+            touch-action: none; /* 防止拖曳時畫面捲動 */
+        }
+
+        .cell {
+            width: 40px; height: 40px; border: 1px solid #34495e; background-color: #34495e;
+            box-sizing: border-box; cursor: pointer; transition: background-color 0.1s, border-color 0.1s;
+        }
+
+        /* 拖曳預覽的樣式 */
+        .cell.preview-valid { background-color: rgba(46, 204, 113, 0.8); border-color: #2ecc71; }
+        .cell.preview-invalid { background-color: rgba(231, 76, 60, 0.8); border-color: #e74c3c; }
+        
+        /* 確定的樣式 */
+        .cell.locked { background-color: #f1c40f; border-color: #f39c12; box-shadow: inset 0 0 8px rgba(211,84,0,0.5); }
+        
+        /* 浮動提示文字 */
+        #dynamic-hint {
+            margin-top: 15px; font-size: 22px; font-weight: bold; color: #ecf0f1;
+            background: rgba(0,0,0,0.5); padding: 10px 25px; border-radius: 50px;
+        }
+
+        /* --- 右側：偵探筆記本 --- */
+        .side-panel {
+            flex: 35; background: #fdfefe; border-left: 4px solid #bdc3c7;
+            display: flex; flex-direction: column; align-items: center; padding: 25px 20px; box-sizing: border-box;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.3); z-index: 10;
+        }
+
+        .notebook-title {
+            font-size: 26px; font-weight: bold; color: #2c3e50; border-bottom: 4px solid #3498db;
+            padding-bottom: 10px; margin-bottom: 20px; width: 100%; text-align: center;
+        }
+
+        .clue-box {
+            background: #e8f4f8; border: 2px dashed #3498db; padding: 15px; border-radius: 12px;
+            width: 100%; box-sizing: border-box; margin-bottom: 15px;
+        }
+        .clue-title { font-size: 18px; color: #e67e22; font-weight: bold; margin: 0 0 5px 0; }
+        .clue-text { font-size: 22px; color: #34495e; margin: 0; line-height: 1.4; font-weight: bold;}
+
+        /* 發現清單 */
+        .found-list { 
+            width: 100%; display: flex; flex-direction: column; gap: 12px; flex: 1; 
+            overflow-y: auto; padding-right: 5px; -webkit-overflow-scrolling: touch;
+        }
+        .found-item {
+            background: white; border: 2px solid #2ecc71; border-left: 10px solid #2ecc71;
+            padding: 12px; border-radius: 10px; font-size: 20px; font-weight: bold; color: #27ae60;
+            display: flex; flex-direction: column; align-items: center; 
+            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        @keyframes slideIn { from { transform: translateX(50px); opacity: 0;} to { transform: translateX(0); opacity: 1;} }
+
+        .progress-text {
+            margin-top: 15px; font-size: 20px; color: #7f8c8d; font-weight: bold;
+            background: #ecf0f1; padding: 12px 25px; border-radius: 50px;
+        }
+        .progress-text span { color: #e74c3c; font-size: 24px; }
+
+        /* ================= 劇情彈窗 (Overlay) ================= */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 15, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center; z-index: 5000;
+        }
+        .dialogue-card {
+            background: white; border-radius: 25px; width: 85%; max-width: 650px; padding: 35px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: center; position: relative;
+            animation: superPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 90dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        @keyframes superPopIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        .kid-title { color: #8e44ad; font-size: 30px; border-bottom: 3px dashed #9b59b6; padding-bottom: 12px; margin-top: 0;}
+        .dialogue-text { font-size: 22px; color: #2c3e50; line-height: 1.6; margin: 20px 0; font-weight: bold;}
+        .dialogue-text span { color: #e74c3c; font-size: 26px; }
+        
+        .btn-continue {
+            background: #3498db; color: white; border: none; padding: 12px 35px; font-size: 22px; font-weight: bold;
+            border-radius: 50px; cursor: pointer; box-shadow: 0 5px 0 #2980b9; transition: transform 0.1s;
+        }
+        .btn-continue:active { transform: translateY(5px); box-shadow: none; }
+
+        /* 撒花特效 */
+        #confetti-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: none; overflow: hidden; }
+        .confetti { position: absolute; width: 15px; height: 15px; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+
+    </style>
+</head>
+<body>
+
+<!-- 開場對白彈窗 -->
+<div class="overlay" id="intro-modal">
+    <div class="dialogue-card" style="border: 6px solid #e67e22;">
+        <h2 class="kid-title" style="color: #d35400; border-color: #e67e22;">✉️ 來自怪盜基德的挑戰信</h2>
+        <p class="dialogue-text">
+            「少年偵探們，算你們厲害，解開了保險箱。<br>
+            但真正的寶石，藏在一個<span>面積剛好是 24 平方米</span>的秘密房間裡。<br><br>
+            請你們運用學過的乘法知識，在畫板上找出<strong style="color:#27ae60;"> 3 種 </strong>不同形狀的長方形房間藍圖吧！」
+        </p>
+        <button class="btn-continue" style="background: #e67e22; box-shadow: 0 5px 0 #d35400;" onclick="startPhase1()">接受挑戰！</button>
+    </div>
+</div>
+
+<!-- 結局對白彈窗 (找齊 3 種後觸發) -->
+<div class="overlay" id="ending-modal" style="display: none;">
+    <div class="dialogue-card" style="border: 6px solid #9b59b6;">
+        <h2 class="kid-title">🎩 基德的最後嘲笑</h2>
+        <p class="dialogue-text">
+            「呵呵，不錯嘛！竟然被你們找齊了畫布上的 3 種長方形。<br>
+            <span style="font-size:18px; color:#7f8c8d; display:block; margin: 10px 0;">(偷偷告訴你們，其實還有一種『長 24 × 寬 1』的超長房間，只是畫布裝不下啦！)</span>
+            但是...<span>誰說我的房間一定是長方形的？</span><br>
+            其實，我住在一個面積也是 <strong style="color:#e74c3c;">24 平方米</strong> 的 <strong>L型秘密房間</strong> 裡！」
+        </p>
+        
+        <!-- 視覺化無縫 L型圖形 -->
+        <div style="margin: 25px auto; position: relative; width: 160px; height: 120px; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.2));">
+            <div style="position: absolute; bottom: 0; left: 0; width: 160px; height: 60px; background: #9b59b6; border: 4px solid #8e44ad; box-sizing: border-box; display: flex; justify-content: flex-end; align-items: center; padding-right: 15px;">
+                <span style="font-size: 16px; font-weight: bold; color: white;">面積 = 24 平方米</span>
+            </div>
+            <div style="position: absolute; top: 0; left: 0; width: 60px; height: 64px; background: #9b59b6; border: 4px solid #8e44ad; border-bottom: none; box-sizing: border-box;"></div>
+        </div>
+
+        <p class="dialogue-text" style="color:#7f8c8d; font-size:20px; margin-top: 10px;">「下節課再來抓我吧！哈哈哈！」</p>
+        
+        <button class="btn-continue" style="background: #9b59b6; box-shadow: 0 5px 0 #8e44ad;" onclick="triggerConfettiAndEnd()">完成本節課任務</button>
+    </div>
+</div>
+
+<!-- 撒花層 -->
+<div id="confetti-container"></div>
+
+<header>
+    <h1>第 10 頁：終極謎題 —— 基德的密室</h1>
+    <span class="instructions">請在畫布上拖曳出面積為 24 平方米 的長方形！</span>
+</header>
+
+<div class="app-container">
+    <!-- 左側畫板 -->
+    <div class="main-stage">
+        <div class="board-container">
+            <div class="grid" id="grid">
+                <!-- JS 生成 12x12 格子 -->
+            </div>
+        </div>
+        <div id="dynamic-hint">👇 請在上方按住拖曳，畫出長方形 👇</div>
+    </div>
+
+    <!-- 右側筆記本 -->
+    <div class="side-panel">
+        <div class="notebook-title">🕵️‍♂️ 偵探筆記本</div>
+        
+        <div class="clue-box">
+            <div class="clue-title">🔑 終極密碼條件：</div>
+            <div class="clue-text">房間的面積必須剛好等於 <strong style="color:#e74c3c; font-size: 28px;">24 平方米</strong></div>
+        </div>
+
+        <!-- 收集長方形 -->
+        <div class="found-list" id="found-list">
+            <!-- 動態生成的迷你圖形與數據會顯示在這裡 -->
+        </div>
+
+        <div class="progress-text" id="progress-text">
+            已找到 <span id="found-count">0</span> / 3 種
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= 核心設定 =================
+    const ROWS = 12; const COLS = 12; const TARGET_AREA = 24;
+    let grid = document.getElementById('grid');
+    let cells =[];
+    
+    let gameActive = false; 
+    let foundRects =[]; 
+    const REQUIRED_RECTS = 3; 
+
+    // 拖曳狀態
+    let isDragging = false;
+    let startR = 0, startC = 0;
+
+    // ================= 初始化畫板 (綁定 iPad 防呆事件) =================
+    function initGrid() {
+        grid.innerHTML = '';
+        cells =[];
+        for(let r=0; r<ROWS; r++){
+            let rowArr =[];
+            for(let c=0; c<COLS; c++){
+                let cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.r = r; cell.dataset.c = c;
+                grid.appendChild(cell);
+                rowArr.push(cell);
+                
+                // 僅保留 pointerdown 來觸發起始點
+                cell.addEventListener('pointerdown', handlePointerDown);
+            }
+            cells.push(rowArr);
+        }
+        
+        // 【核心修復】在全域監聽移動與放開，完美支援 iPad 觸控滑動
+        document.addEventListener('pointermove', handlePointerMove);
+        document.addEventListener('pointerup', handlePointerUp);
+        document.addEventListener('pointercancel', handlePointerUp);
+
+        // 防止在格子上滑動時，Safari 整個網頁被拖著走
+        grid.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive: false});
+    }
+
+    // ================= 階段控制 =================
+    function startPhase1() {
+        document.getElementById('intro-modal').style.display = 'none';
+        gameActive = true;
+    }
+
+    function triggerConfettiAndEnd() {
+        document.getElementById('ending-modal').style.display = 'none';
+        fireConfetti();
+        document.getElementById('dynamic-hint').innerHTML = "🎉 恭喜完成所有挑戰！請等待老師指示。";
+    }
+
+    // ================= iPad 專屬互動邏輯 ( elementFromPoint ) =================
+    function handlePointerDown(e) {
+        if(!gameActive) return;
+        
+        // 釋放 Pointer Capture，讓 elementFromPoint 可以在滑動時正確抓到格子
+        if(e.pointerId) {
+            try { e.target.releasePointerCapture(e.pointerId); } catch(err){}
+        }
+
+        if(!e.target.classList.contains('cell')) return;
+
+        let r = parseInt(e.target.dataset.r);
+        let c = parseInt(e.target.dataset.c);
+
+        clearPreview();
+        isDragging = true;
+        startR = r; startC = c;
+        updateRectPreview(r, c);
+    }
+
+    function handlePointerMove(e) {
+        if (!gameActive || !isDragging) return;
+
+        // 取得精準的觸控/滑鼠坐標
+        let x = e.clientX;
+        let y = e.clientY;
+        if (x === undefined && e.touches && e.touches.length > 0) {
+            x = e.touches[0].clientX;
+            y = e.touches[0].clientY;
+        }
+
+        // 利用座標找出手指目前滑到了哪個格子
+        let elem = document.elementFromPoint(x, y);
+        if (elem && elem.classList.contains('cell')) {
+            let currR = parseInt(elem.dataset.r);
+            let currC = parseInt(elem.dataset.c);
+            updateRectPreview(currR, currC);
+        }
+    }
+
+    function handlePointerUp(e) {
+        if (gameActive && isDragging) {
+            isDragging = false;
+            checkRectSubmission();
+        }
+    }
+
+    // ================= 繪圖與檢查邏輯 =================
+    let currentRect = null;
+
+    function clearPreview() {
+        grid.querySelectorAll('.cell').forEach(cell => {
+            cell.classList.remove('preview-valid', 'preview-invalid');
+        });
+    }
+
+    function clearGrid() {
+        grid.querySelectorAll('.cell').forEach(cell => {
+            cell.className = 'cell';
+        });
+    }
+
+    function updateRectPreview(endR, endC) {
+        clearPreview();
+        let minR = Math.min(startR, endR), maxR = Math.max(startR, endR);
+        let minC = Math.min(startC, endC), maxC = Math.max(startC, endC);
+        let w = maxC - minC + 1;
+        let h = maxR - minR + 1;
+        let area = w * h;
+        
+        let isValid = (area === TARGET_AREA);
+        currentRect = { minR, maxR, minC, maxC, w, h, isValid };
+
+        document.getElementById('dynamic-hint').innerHTML = `長: ${w} × 寬: ${h} = 面積: <span style="color:${isValid?'#2ecc71':'#e74c3c'}">${area} 平方米</span>`;
+
+        for(let r=minR; r<=maxR; r++){
+            for(let c=minC; c<=maxC; c++){
+                cells[r][c].classList.add(isValid ? 'preview-valid' : 'preview-invalid');
+            }
+        }
+    }
+
+    function checkRectSubmission() {
+        if(!currentRect) return;
+        
+        if (currentRect.isValid) {
+            let minSide = Math.min(currentRect.w, currentRect.h);
+            let maxSide = Math.max(currentRect.w, currentRect.h);
+            let comboId = minSide + "x" + maxSide;
+            
+            if (!foundRects.includes(comboId)) {
+                foundRects.push(comboId);
+                
+                // 動態添加圖形
+                addFoundItemVisual(currentRect.w, currentRect.h);
+                document.getElementById('found-count').innerText = foundRects.length;
+
+                for(let r=currentRect.minR; r<=currentRect.maxR; r++){
+                    for(let c=currentRect.minC; c<=currentRect.maxC; c++){
+                        cells[r][c].className = 'cell locked';
+                    }
+                }
+                
+                // 判斷是否找齊
+                if(foundRects.length >= REQUIRED_RECTS) {
+                    gameActive = false; 
+                    document.getElementById('dynamic-hint').innerHTML = "✨ 找齊 3 種長方形了！";
+                    setTimeout(() => { document.getElementById('ending-modal').style.display = 'flex'; }, 1500);
+                } else {
+                    document.getElementById('dynamic-hint').innerHTML = "✨ 找到一種新藍圖了！請再找找看其他形狀！";
+                    setTimeout(() => { clearGrid(); clearPreview(); }, 1500); 
+                }
+
+            } else {
+                document.getElementById('dynamic-hint').innerHTML = "⚠️ 這個組合(長寬)已經找過囉！試試別的。";
+                setTimeout(() => { clearPreview(); }, 1200);
+            }
+        } else {
+            document.getElementById('dynamic-hint').innerHTML = "❌ 面積不是 24 平方米！請重新畫！";
+            setTimeout(() => { clearPreview(); }, 1000);
+        }
+        currentRect = null;
+    }
+
+    // ================= 動態生成迷你圖形記錄 =================
+    function addFoundItemVisual(w, h) {
+        const list = document.getElementById('found-list');
+        const item = document.createElement('div');
+        item.className = 'found-item';
+
+        let cellsHtml = '';
+        for(let i=0; i < w * h; i++) {
+            cellsHtml += `<div style="width: 14px; height: 14px; background-color: #f1c40f; border: 1px solid #f39c12; box-shadow: inset 0 0 2px rgba(211,84,0,0.3); box-sizing: border-box;"></div>`;
+        }
+
+        item.innerHTML = `
+            <div style="width: 100%; display: flex; justify-content: space-between; font-size: 16px; align-items: center; margin-bottom: 6px;">
+                <span style="color:#2c3e50;">長 ${w} × 寬 ${h}</span>
+                <span style="color:#e74c3c;">= 24 平方米</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(${w}, 14px); border: 2px solid #d35400; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                ${cellsHtml}
+            </div>
+        `;
+        list.appendChild(item);
+        list.scrollTop = list.scrollHeight;
+    }
+
+    // ================= 撒花特效 =================
+    function fireConfetti() {
+        const container = document.getElementById('confetti-container');
+        container.style.display = 'block'; container.innerHTML = ''; 
+        const colors =['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
+        for(let i=0; i<150; i++) {
+            let conf = document.createElement('div'); conf.className = 'confetti';
+            conf.style.left = Math.random() * 100 + 'vw';
+            conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            if(Math.random() > 0.5) conf.style.borderRadius = '50%';
+            let duration = Math.random() * 3 + 2; let delay = Math.random() * 1.5; 
+            conf.style.animationDuration = duration + 's'; conf.style.animationDelay = delay + 's';
+            conf.style.transform = `scale(${Math.random() * 0.8 + 0.5})`;
+            container.appendChild(conf); setTimeout(() => { conf.remove(); }, (duration + delay) * 1000);
+        }
+    }
+
+    // 啟動程式
+    initGrid();
+
+</script>
+
+</body>
+</html>
