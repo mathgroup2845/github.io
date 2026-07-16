@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>開啟寶箱之旅——全能駕駛員</title>
+    <style>
+        /* --- 整體風格：尋寶科技感 --- */
+        body {
+            font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif;
+            background-color: #e0f7fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        h1 { color: #006064; margin-bottom: 5px; text-shadow: 1px 1px 2px #b2ebf2; text-align: center; }
+        p.subtitle { color: #00838f; margin-bottom: 20px; font-weight: bold; font-size: 1.1em; text-align: center; }
+
+        /* 關卡進度標示 */
+        .progress-badge {
+            background-color: #ff9800;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.6em;
+            vertical-align: middle;
+            margin-left: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* 主容器 */
+        .main-wrapper {
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 畫布 */
+        canvas {
+            background-color: #ffffff;
+            border: 6px solid #00acc1;
+            border-radius: 15px;
+            box-shadow: 8px 8px 0px rgba(0, 172, 193, 0.2);
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 380px;
+            border-top: 10px solid #26c6da;
+        }
+
+        /* --- 區塊 1: 旋轉控制 --- */
+        .section-box {
+            background-color: #e0f7fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 2px dashed #80deea;
+            position: relative;
+        }
+
+        .section-title {
+            position: absolute;
+            top: -12px;
+            left: 15px;
+            background: #0097a7;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .rotate-btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 35px;
+            margin-top: 15px;
+        }
+
+        .rotate-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-rotate {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            font-size: 45px; 
+            font-weight: bold;
+            line-height: 1;
+            padding-bottom: 8px; 
+            cursor: pointer;
+            background-color: #ff9800; 
+            color: white;
+            box-shadow: 0 5px #f57c00;
+            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-rotate:active { transform: scale(0.9); box-shadow: 0 2px #f57c00; }
+        
+        .rotate-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #006064;
+            background-color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 2px solid #b2ebf2;
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        /* --- 區塊 2: 平移控制 --- */
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 16px;
+            color: #006064;
+            margin-bottom: 8px;
+        }
+
+        select, input {
+            padding: 6px;
+            font-size: 16px;
+            border: 2px solid #4dd0e1;
+            border-radius: 6px;
+            background-color: white;
+            color: #00838f;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        input[type="number"] { width: 50px; text-align: center; }
+
+        /* --- 功能按鈕 --- */
+        .action-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-main {
+            padding: 12px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.1s;
+        }
+        .btn-main:active { transform: scale(0.96); }
+
+        .btn-go { grid-column: 1 / -1; background-color: #43a047; box-shadow: 0 4px #2e7d32; font-size: 20px; }
+        .btn-retry { background-color: #fb8c00; box-shadow: 0 4px #ef6c00; }
+        .btn-new { background-color: #546e7a; box-shadow: 0 4px #37474f; }
+
+        /* 訊息區 */
+        #msg-box {
+            margin-top: 10px;
+            min-height: 50px;
+            padding: 10px;
+            background: #fff8e1;
+            border-radius: 8px;
+            color: #f57f17;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #ffecb3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.4;
+        }
+        
+        .highlight { color: #d84315; background: white; padding: 0 4px; border-radius: 4px; border: 1px solid #ffccbc; }
+
+        /* --- 慶祝蓋章畫面 (全螢幕覆蓋) --- */
+        #celebration-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(224, 247, 250, 0.95);
+            display: none; /* 預設隱藏 */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .celebration-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            border: 6px solid #ffca28;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .celebration-box h2 {
+            color: #00838f;
+            margin-bottom: 30px;
+        }
+
+        /* 蓋章特效 */
+        .stamp-mark {
+            color: #d32f2f;
+            border: 8px solid #d32f2f;
+            border-radius: 15px;
+            padding: 15px 30px;
+            font-size: 60px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            transform: rotate(-15deg);
+            display: inline-block;
+            box-shadow: 0 0 0 4px #d32f2f inset;
+            margin-bottom: 30px;
+            opacity: 0; /* 初始隱藏，靠動畫出現 */
+        }
+
+        /* 蓋下去的動畫 */
+        .stamp-mark.show {
+            animation: stampAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stampAnim {
+            0% { transform: scale(3) rotate(-15deg); opacity: 0; }
+            100% { transform: scale(1) rotate(-15deg); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🗺️ 開啟寶箱之旅 <span id="progress-text" class="progress-badge">第 1 / 5 關</span></h1>
+    <p class="subtitle">任務：將探險車轉到正確方向，再開到虛影上拿寶藏！</p>
+
+    <div class="main-wrapper">
+        <canvas id="gameCanvas" width="500" height="500"></canvas>
+
+        <div class="control-panel">
+            
+            <!-- 1. 旋轉區塊 -->
+            <div class="section-box">
+                <span class="section-title">1. 調整車頭方向 (旋轉)</span>
+                <div style="text-align:center; font-size:14px; color:#555; margin-top:5px;">
+                    點擊按鈕，讓車頭方向和虛影一樣
+                </div>
+                <div class="rotate-btn-group">
+                    <div class="rotate-item">
+                        <button class="btn-rotate" onclick="rotatePlayer(-90)" title="逆時針轉">↺</button>
+                        <span class="rotate-label">向左轉<br><small>(逆時針)</small></span>
+                    </div>
+                    <div class="rotate-item">
+                        <button class="btn-rotate" onclick="rotatePlayer(90)" title="順時針轉">↻</button>
+                        <span class="rotate-label">向右轉<br><small>(順時針)</small></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 平移區塊 -->
+            <div class="section-box" style="border-color: #a5d6a7; background-color: #e8f5e9;">
+                <span class="section-title" style="background-color: #43a047;">2. 規劃路線 (平移)</span>
+                
+                <div class="input-row">
+                    先向
+                    <select id="dir1"><option value="right">➡️ 右</option><option value="left">⬅️ 左</option><option value="up">⬆️ 上</option><option value="down">⬇️ 下</option></select>
+                    平移
+                    <input type="number" id="step1" min="0" max="9" value="0"> 格
+                </div>
+
+                <div class="input-row">
+                    再向
+                    <select id="dir2"><option value="down">⬇️ 下</option><option value="up">⬆️ 上</option><option value="right">➡️ 右</option><option value="left">⬅️ 左</option></select>
+                    平移
+                    <input type="number" id="step2" min="0" max="9" value="0"> 格
+                </div>
+            </div>
+
+            <div id="msg-box">準備出發！先轉動方向，再輸入格數。</div>
+
+            <div class="action-group">
+                <button class="btn-main btn-go" onclick="runSequence()">🏎️ 出發尋寶 (執行)</button>
+                <button class="btn-main btn-retry" onclick="retryLevel()">🛠️ 回到起點 (修正)</button>
+                <!-- 下一關按鈕的 ID -->
+                <button id="btn-next" class="btn-main btn-new" onclick="nextLevelAction()">🗺️ 下一個寶藏</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 慶祝蓋章畫面 -->
+    <div id="celebration-overlay">
+        <div class="celebration-box">
+            <h2>太厲害了！你完成了 5 個尋寶任務！</h2>
+            <div id="stamp-element" class="stamp-mark">旋轉通關</div>
+            <br>
+            <button class="btn-main btn-go" onclick="restartGame()" style="padding: 15px 40px; font-size: 22px;">🔄 再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const msgBox = document.getElementById('msg-box');
+
+        const gridSize = 50; 
+        const gridCount = 10; 
+
+        // 遊戲與關卡狀態
+        let currentLevel = 1;
+        const maxLevels = 5;
+
+        let startState = { x: 0, y: 0, angle: 0 }; 
+        let player = { x: 0, y: 0, angle: 0 };
+        let target = { x: 0, y: 0, angle: 0 };
+        let isMoving = false;
+
+        // --- 1. 產生新題目 ---
+        function newLevel() {
+            // 更新進度標籤與按鈕文字
+            document.getElementById('progress-text').innerText = `第 ${currentLevel} / ${maxLevels} 關`;
+            const btnNext = document.getElementById('btn-next');
+            if (currentLevel === maxLevels) {
+                btnNext.innerText = "🔄 重新開始";
+            } else {
+                btnNext.innerText = "🗺️ 下一個寶藏";
+            }
+
+            startState.x = Math.floor(Math.random() * 5); 
+            startState.y = Math.floor(Math.random() * 5) + 2; 
+            startState.angle = Math.floor(Math.random() * 4) * 90;
+
+            player.x = startState.x;
+            player.y = startState.y;
+            player.angle = startState.angle;
+
+            do {
+                target.x = Math.floor(Math.random() * 9);
+                target.y = Math.floor(Math.random() * 9);
+            } while (Math.abs(target.x - player.x) + Math.abs(target.y - player.y) < 3);
+
+            // 保證每次抽題的目標方向一定和起點不同
+            do {
+                target.angle = Math.floor(Math.random() * 4) * 90;
+            } while (target.angle === player.angle);
+
+            document.getElementById('step1').value = 0;
+            document.getElementById('step2').value = 0;
+            
+            msgBox.innerHTML = `【第 ${currentLevel} 關】發現寶藏！<br>請將車子轉向並開到寶箱虛影上。`;
+            msgBox.style.color = "#00838f";
+            isMoving = false;
+            draw();
+        }
+
+        // --- 點擊「下一個寶藏」按鈕的邏輯 ---
+        function nextLevelAction() {
+            if (isMoving) return;
+            if (currentLevel < maxLevels) {
+                currentLevel++;
+                newLevel();
+            } else {
+                // 如果已經在第5關，按鈕功能變為重新開始
+                restartGame();
+            }
+        }
+
+        // --- 重新開始遊戲 ---
+        function restartGame() {
+            currentLevel = 1;
+            // 隱藏慶祝畫面並移除蓋章動畫 class
+            document.getElementById('celebration-overlay').style.display = 'none';
+            document.getElementById('stamp-element').classList.remove('show');
+            newLevel();
+        }
+
+        // --- 顯示通關慶祝畫面 ---
+        function showCelebration() {
+            document.getElementById('celebration-overlay').style.display = 'flex';
+            // 延遲一點點加上 show，讓蓋章動畫有「用力蓋下去」的感覺
+            setTimeout(() => {
+                document.getElementById('stamp-element').classList.add('show');
+            }, 100);
+        }
+
+        // --- 2. 旋轉功能 (逆時針/順時針) ---
+        function rotatePlayer(deg) {
+            if (isMoving) return;
+            
+            player.angle = (player.angle + deg) % 360;
+            if (player.angle < 0) player.angle += 360;
+
+            draw();
+            checkWin(false); 
+        }
+
+        // --- 3. 重試 (回到起點) ---
+        function retryLevel() {
+            if (isMoving) return;
+            player.x = startState.x;
+            player.y = startState.y;
+            player.angle = startState.angle; 
+            
+            msgBox.innerHTML = "已回到起點。<br>請重新調整方向和格數！";
+            msgBox.style.color = "#e65100";
+            draw();
+        }
+
+        // --- 4. 執行平移序列 ---
+        async function runSequence() {
+            if (isMoving) return;
+            
+            const d1 = document.getElementById('dir1').value;
+            const s1 = parseInt(document.getElementById('step1').value) || 0;
+            const d2 = document.getElementById('dir2').value;
+            const s2 = parseInt(document.getElementById('step2').value) || 0;
+
+            if (s1 === 0 && s2 === 0) {
+                msgBox.innerHTML = "⚠️ 你沒有輸入平移格數喔！";
+                return;
+            }
+
+            isMoving = true;
+            msgBox.innerHTML = "探險車出發中...";
+
+            const dirName = { "right": "右", "left": "左", "up": "上", "down": "下" };
+
+            if (s1 > 0) {
+                msgBox.innerHTML = `正在向 ${dirName[d1]} 平移 ${s1} 格...`;
+                await moveStepByStep(d1, s1);
+            }
+
+            if (s1 > 0 && s2 > 0) await new Promise(r => setTimeout(r, 400));
+
+            if (s2 > 0) {
+                msgBox.innerHTML = `正在向 ${dirName[d2]} 平移 ${s2} 格...`;
+                await moveStepByStep(d2, s2);
+            }
+
+            checkWin(true);
+            isMoving = false;
+        }
+
+        async function moveStepByStep(direction, steps) {
+            let dx = 0, dy = 0;
+            if (direction === 'right') dx = 1;
+            if (direction === 'left') dx = -1;
+            if (direction === 'up') dy = -1;
+            if (direction === 'down') dy = 1;
+
+            for (let i = 0; i < steps; i++) {
+                let nextX = player.x + dx;
+                let nextY = player.y + dy;
+
+                if (nextX >= 0 && nextX < gridCount && nextY >= 0 && nextY < gridCount) {
+                    player.x = nextX;
+                    player.y = nextY;
+                    draw();
+                    await new Promise(r => setTimeout(r, 300));
+                } else {
+                    msgBox.innerHTML = "❌ 哎呀！撞到邊界了！";
+                    break;
+                }
+            }
+        }
+
+        // --- 5. 判斷輸贏 ---
+        function checkWin(showFailMsg) {
+            const posMatch = (player.x === target.x && player.y === target.y);
+            const angleMatch = (player.angle === target.angle);
+
+            if (posMatch && angleMatch) {
+                // 判斷是否為最後一關
+                if (currentLevel === maxLevels) {
+                    msgBox.innerHTML = "🎉 <span style='color:#2e7d32; font-size:1.2em'>完美過關！</span><br>準備領取通關印章！";
+                    ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; 
+                    ctx.fillRect(0,0,canvas.width, canvas.height);
+                    
+                    // 停頓 1.2 秒讓學生看到寶箱開啟，然後跳出蓋章畫面
+                    setTimeout(showCelebration, 1200);
+                } else {
+                    msgBox.innerHTML = "🎉 <span style='color:#2e7d32; font-size:1.2em'>任務完美成功！</span><br>請按【下一個寶藏】進入下一關！";
+                    ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; 
+                    ctx.fillRect(0,0,canvas.width, canvas.height);
+                }
+            } else if (posMatch && !angleMatch) {
+                msgBox.innerHTML = "到了寶箱位置，但是<b>方向不對</b>打不開！<br>請按[回到起點] 重新旋轉車頭。";
+                msgBox.style.color = "#d32f2f";
+            } else if (!posMatch && showFailMsg) {
+                msgBox.innerHTML = "還沒開到寶箱的位置喔。<br>請按[回到起點] 修正格數。";
+                msgBox.style.color = "#d32f2f";
+            }
+        }
+
+        // --- 6. 繪圖 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 畫網格
+            ctx.strokeStyle = '#b2ebf2';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= gridCount; i++) {
+                ctx.beginPath(); ctx.moveTo(i * gridSize, 0); ctx.lineTo(i * gridSize, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i * gridSize); ctx.lineTo(canvas.width, i * gridSize); ctx.stroke();
+            }
+            
+            // 座標
+            ctx.fillStyle = "#4dd0e1";
+            ctx.font = "12px Arial";
+            for(let i=0; i<gridCount; i++) {
+                ctx.fillText(i, i*gridSize+4, 12);
+                ctx.fillText(i, 4, i*gridSize+12);
+            }
+
+            // 畫目標 (寶箱 + 虛影)
+            drawTarget(target.x, target.y, target.angle);
+            
+            // 畫玩家 (實體探險車)
+            drawRover(player.x, player.y, player.angle, false);
+        }
+
+        // 繪製目標 (寶箱與虛影)
+        function drawTarget(gx, gy, angle) {
+            drawRover(gx, gy, angle, true);
+
+            const cx = gx * gridSize + gridSize / 2;
+            const cy = gy * gridSize + gridSize / 2;
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // 寶箱光暈
+            ctx.fillStyle = "rgba(255, 235, 59, 0.5)";
+            ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2); ctx.fill();
+
+            // 寶箱本體
+            ctx.fillStyle = '#ffb300'; 
+            ctx.fillRect(-12, -10, 24, 20);
+            ctx.strokeStyle = '#8d6e63'; 
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-12, -10, 24, 20);
+            
+            // 寶箱鎖頭
+            ctx.fillStyle = '#fff9c4';
+            ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // 繪製探險車
+        function drawRover(gx, gy, angle, isShadow) {
+            const cx = gx * gridSize + gridSize / 2;
+            const cy = gy * gridSize + gridSize / 2;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle * Math.PI / 180); 
+
+            // 車身透明度設定
+            ctx.globalAlpha = isShadow ? 0.3 : 1.0;
+            ctx.fillStyle = isShadow ? '#90a4ae' : '#ff7043'; 
+            ctx.strokeStyle = isShadow ? '#546e7a' : '#bf360c';
+
+            // 車身
+            ctx.lineWidth = 2;
+            ctx.fillRect(-15, -20, 30, 40);
+            ctx.strokeRect(-15, -20, 30, 40);
+
+            // 輪子
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-22, -18, 7, 12); 
+            ctx.fillRect(15, -18, 7, 12);  
+            ctx.fillRect(-22, 10, 7, 12);  
+            ctx.fillRect(15, 10, 7, 12);   
+
+            // 駕駛艙
+            ctx.fillStyle = isShadow ? '#b0bec5' : '#81d4fa'; 
+            ctx.beginPath();
+            ctx.arc(0, -5, 10, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 超明顯的車頭燈與方向箭頭 (不受半透明影響)
+            ctx.globalAlpha = 1.0; 
+            
+            ctx.fillStyle = isShadow ? '#ff9800' : '#ffeb3b';
+            ctx.strokeStyle = '#bf360c';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -32); // 尖端大幅向外凸出
+            ctx.lineTo(-12, -15);
+            ctx.lineTo(12, -15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // 啟動遊戲
+        newLevel();
+
+    </script>
+</body>
+</html>
